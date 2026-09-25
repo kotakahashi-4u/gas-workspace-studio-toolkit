@@ -1,0 +1,127 @@
+{
+  "timeZone": "Asia/Tokyo",
+  "dependencies": {
+    "libraries": [{
+      "userSymbol": "StudioWrapper",
+      "libraryId": "1XhLWjQhiO25oEYIf_ygF_AZ7GKOLvXMz1VF8ivqXB-vkkvx8d0H5IrWD",
+      "version": "1"
+    }]
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "oauthScopes": ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/script.external_request"],
+  "runtimeVersion": "V8",
+  "addOns": {
+    "common": {
+      "name": "Drive拡張",
+      "logoUrl": "https://www.gstatic.com/images/branding/product/1x/drive_48dp.png"
+    },
+    "studio": {
+      "flows": {
+        "workflowElements": [{
+          "id": "moveFileAction",
+          "state": "ACTIVE",
+          "name": "ファイルまたはフォルダを移動Ex",
+          "description": "指定したアイテムを、指定したフォルダへ移動します",
+          "workflowAction": {
+            "inputs": [{
+              "id": "file_url",
+              "description": "移動するアイテム(ファイル/フォルダ)のリンク（URL）",
+              "dataType": {
+                "basicType": "STRING"
+              },
+              "cardinality": "SINGLE"
+            }, {
+              "id": "folder_url",
+              "description": "移動先のフォルダのリンク（URL）",
+              "dataType": {
+                "basicType": "STRING"
+              },
+              "cardinality": "SINGLE"
+            }],
+            "outputs": [{
+              "id": "result_status",
+              "description": "処理結果のステータス",
+              "dataType": {
+                "basicType": "STRING"
+              },
+              "cardinality": "SINGLE"
+            }],
+            "onConfigFunction": "onWorkflowConfig",
+            "onExecuteFunction": "onWorkflowExecute"
+          }
+        }, {
+          "id": "checkRootAction",
+          "state": "ACTIVE",
+          "name": "追加したアイテムがルートフォルダ直下かどうかを判定する",
+          "description": "アイテムが指定したフォルダの直下にあるかを判定します",
+          "workflowAction": {
+            "inputs": [{
+              "id": "item_url",
+              "description": "判定対象のアイテムURL",
+              "dataType": {
+                "basicType": "STRING"
+              },
+              "cardinality": "SINGLE"
+            }, {
+              "id": "root_folder_url",
+              "description": "ルートとなるフォルダURL",
+              "dataType": {
+                "basicType": "STRING"
+              },
+              "cardinality": "SINGLE"
+            }],
+            "outputs": [{
+              "id": "is_direct_child",
+              "description": "直下かどうかの判定結果(true/false)",
+              "dataType": {
+                "basicType": "BOOLEAN"
+              },
+              "cardinality": "SINGLE"
+            }],
+            "onConfigFunction": "onCheckRootConfig",
+            "onExecuteFunction": "onCheckRootExecute"
+          }
+        }, {
+          "id": "splitPdfAction",
+          "state": "ACTIVE",
+          "name": "PDFファイルを指定ページ数で分割",
+          "description": "PDFを指定したページ数ごとに分割し、新しいファイルとして保存します",
+          "workflowAction": {
+            "inputs": [{
+              "id": "split_file_url",
+              "description": "分割対象のPDFファイルURL",
+              "dataType": {
+                "basicType": "STRING"
+              },
+              "cardinality": "SINGLE"
+            }, {
+              "id": "chunk_size",
+              "description": "分割するページ数",
+              "dataType": {
+                "basicType": "STRING"
+              },
+              "cardinality": "SINGLE"
+            }, {
+              "id": "dest_folder_url",
+              "description": "分割後の保存先フォルダURL",
+              "dataType": {
+                "basicType": "STRING"
+              },
+              "cardinality": "SINGLE"
+            }],
+            "outputs": [{
+              "id": "created_file_urls",
+              "description": "作成された分割PDFのURLリスト",
+              "dataType": {
+                "basicType": "STRING"
+              },
+              "cardinality": "MULTIPLE"
+            }],
+            "onConfigFunction": "onSplitPdfConfig",
+            "onExecuteFunction": "onSplitPdfExecute"
+          }
+        }]
+      }
+    }
+  }
+}
