@@ -70,3 +70,157 @@ Google Sheetsに対する高度なデータ書き込みを自動化するアク�
 
 ## ⚠️ 注意事項と制限
 - PDF分割処理（DriveEx）は、GASの実行時間制限（6分）の影響を受けるため、極端にページ数の多いPDFや重いファイルの処理にはご注意ください。
+
+---
+
+## 📚 付録: 独自ライブラリ「StudioWrapper」について
+
+本ツールキットの基盤として独自開発した `StudioWrapper` は、Workspace Studioのカスタムアクション開発における「GAS特有の冗長な記述」や「UIの仕様制限」をハックし、直感的な開発体験を提供する強力なラッパーライブラリです。
+
+### 1. StudioWrapperの特長
+- **Raw JSONレンダリングエンジン:** 公式の `CardService` が抱えるバグ（ドロップダウンが強制的にテキストボックスにダウングレードされる問題など）を回避するため、Workspace Studioが要求する厳密なRaw JSONを直接構築して返却します。
+- **出力処理の隠蔽:** 配列（リスト）か単一値かを自動判別し、冗長な `AddOnsResponseService` の記述を一行のオブジェクト形式に圧縮します。
+- **リッチログの標準化:** マテリアルアイコンやリンクチップを含むアクティビティログの生成を標準サポートしています。
+
+### 2. 劇的なコードの簡略化（Before / After）
+Workspace Studioで「実行結果を変数として返しつつ、ログを出力する」という単純な処理を行う場合、ネイティブのGASでは非常に深くネストされた冗長なコードを書く必要があります。
+
+**❌ Before (GASネイティブによる記述):**
+```javascript
+/**
+ * 1. 設定画面（Config）の定義を返す関数
+ * appsscript.json の "onConfigFunction": "onWorkflowConfig" に対応
+ */
+function onWorkflowConfig() {
+  
+  // 入力フォームの作成
+  let textInput = CardService.newTextInput()
+    // マニフェストの inputs > id: "input_text" と一言一句合わせる必要がある
+    .setFieldName("input_text")
+    
+    // 画面に表示されるラベル（マニフェストには書けないUI要素はここで定義）
+    .setTitle("加工するテキスト")
+    .setHint("ここに文字を入力してください")
+    .setHostAppDataSource(CardService.newHostAppDataSource().setWorkflowDataSource(CardService.newWorkflowDataSource().setIncludeVariables(true)));
+
+  // カードの構築
+  let card = CardService.newCardBuilder()
+    .setHeader(CardService.newCardHeader().setTitle("テキスト加工設定"))
+    .addSection(
+      CardService.newCardSection()
+        .addWidget(textInput)
+    )
+    .build();
+
+  // Workflowsの設定画面として描画するアクションを返す
+  return CardService.newActionResponseBuilder()
+                    .setNavigation(CardService.newNavigation().pushCard(card))
+                    .build();
+}
+
+/**
+ * 2. 実際の処理（Execute）を行う関数
+ * appsscript.json の "onExecuteFunction": "onWorkflowExecute" に対応
+ */
+function onWorkflowExecute(e) {
+  // 1. 入力値の受け取り
+  const inputVal = e.workflow.actionInvocation.inputs["input_text"].stringValues[0];
+
+  // 2. 結果の返却
+  const variableDataMap = { "result_text": AddOnsResponseService.newVariableData().addStringValue(`【処理済】${inputVal}`) }, // マニフェストの outputs > id: "result_text" とキー名を合わせる必要がある。
+        workflowAction = AddOnsResponseService.newReturnOutputVariablesAction().setVariableDataMap(variableDataMap),
+        hostAppAction = AddOnsResponseService.newHostAppAction().setWorkflowAction(workflowAction),
+        renderAction = AddOnsResponseService.newRenderActionBuilder().setHostAppAction(hostAppAction).build();
+
+ return renderAction;
+}
+```
+
+**✅ After (StudioWrapperを使用した場合):**
+```javascript
+function onWorkflowConfig() {
+  return StudioWrapper.buildConfigCard("テキスト加工設定", [
+    { type: StudioWrapper.TEXT_INPUT, id: "input_text", title: "加工するテキスト", hint: "ここに文字を入力してください" }
+  ]);
+}
+
+function onWorkflowExecute(e) {
+  const inputVal = e.workflow.actionInvocation.inputs["input_text"].stringValues[0];
+  return StudioWrapper.buildExecuteResponse({ "result_text": `【処理済】${inputVal}` });
+}
+```
+
+### 3. コーディング・スニペット集
+ご自身のGASプロジェクトで `StudioWrapper` を呼び出してUIや処理を構築する際の、代表的な記述例です。
+
+**① シンプルなテキスト入力UIを作る**
+```javascript
+function onConfigFunction() {
+  return StudioWrapper.buildConfigCard("基本設定", [
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "user_name", 
+      title: "お名前", 
+      hint: "姓名を入力してください" 
+    }
+  ]);
+}
+```
+
+**② ドロップダウンメニューUIを作る**
+```javascript
+function onConfigFunction() {
+  return StudioWrapper.buildConfigCard("選択設定", [
+    { 
+      type: StudioWrapper.SELECTION,
+      id: "fruit_choice", 
+      title: "好きなフルーツ", 
+      selectionType: StudioWrapper.DROPDOWN,
+      options: [
+        { text: "りんご", value: "apple", selected: true },
+        { text: "みかん", value: "orange" }
+      ]
+    }
+  ]);
+}
+```
+
+**③ 単一の変数（文字列・数値）を返す**
+```javascript
+function onExecuteFunction(e) {
+  // 処理ロジック...
+  return StudioWrapper.buildExecuteResponse({ 
+    "status_code": 200,
+    "response_text": "処理が完了しました" 
+  });
+}
+```
+
+**④ リスト（配列）を変数として返す（ループ処理用）**
+```javascript
+function onExecuteFunction(e) {
+  // マニフェスト側で "cardinality": "MULTIPLE" に設定したキーに配列を渡すだけで、
+  // 自動的にリスト出力としてパースされます。
+  const urlList = ["https://url-1.com", "https://url-2.com"];
+  
+  return StudioWrapper.buildExecuteResponse({ 
+    "generated_urls": urlList 
+  });
+}
+```
+
+**⑤ エラー発生時に、処理を中断してエラーログを出力する**
+```javascript
+function onExecuteFunction(e) {
+  try {
+    throw new Error("APIの認証に失敗しました。");
+  } catch(error) {
+    // isError: true を渡すことで、後続のステップを停止しエラーログを赤色で表示します。
+    return StudioWrapper.buildExecuteResponse({}, {
+      isError: true,
+      message: error.message,
+      chip: { label: "エラー詳細", icon: StudioWrapper.ICON_ERROR }
+    });
+  }
+}
+```
