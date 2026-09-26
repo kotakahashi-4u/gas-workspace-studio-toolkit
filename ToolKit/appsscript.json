@@ -1,0 +1,267 @@
+{
+  "timeZone": "Asia/Tokyo",
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "dependencies": {
+    "libraries": [
+      {
+        "userSymbol": "StudioWrapper",
+        "libraryId": "1ka8vVJSaKyYjuGXyJMMxqESfKgV9R6fKCP6kroTIRBZ_0jrIaswR_Sch",
+        "version": "1"
+      }
+    ]
+  },
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/script.external_request"
+  ],
+  "addOns": {
+    "common": {
+      "name": "Enhancer 4 Studio",
+      "logoUrl": "https://www.gstatic.com/images/branding/product/1x/google_workspace_48dp.png"
+    },
+    "studio": {
+      "flows": {
+        "workflowElements": [
+          {
+            "id": "moveFileAction",
+            "state": "ACTIVE",
+            "name": "ファイルまたはフォルダを移動Ex",
+            "description": "指定したアイテムを、指定したフォルダへ移動します",
+            "workflowAction": {
+              "inputs": [
+                {
+                  "id": "file_id",
+                  "description": "移動するアイテム(ファイル/フォルダ)",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "folder_id",
+                  "description": "移動先のフォルダ",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "result_status",
+                  "description": "処理結果のステータス",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "onConfigFunction": "onWorkflowConfig",
+              "onExecuteFunction": "onWorkflowExecute"
+            }
+          },
+          {
+            "id": "checkRootAction",
+            "state": "ACTIVE",
+            "name": "追加したアイテムがルートフォルダ直下かどうかを判定する",
+            "description": "アイテムが指定したフォルダの直下にあるかを判定します",
+            "workflowAction": {
+              "inputs": [
+                {
+                  "id": "item_id",
+                  "description": "判定対象のアイテム",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "root_folder_id",
+                  "description": "ルートとなるフォルダ",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "is_direct_child",
+                  "description": "直下かどうかの判定結果(true/false)",
+                  "dataType": {
+                    "basicType": "BOOLEAN"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "onConfigFunction": "onCheckRootConfig",
+              "onExecuteFunction": "onCheckRootExecute"
+            }
+          },
+          {
+            "id": "splitPdfAction",
+            "state": "ACTIVE",
+            "name": "PDFファイルを指定ページ数で分割",
+            "description": "PDFを指定したページ数ごとに分割し、新しいファイルとして保存します",
+            "workflowAction": {
+              "inputs": [
+                {
+                  "id": "split_file_id",
+                  "description": "分割対象のPDFファイル",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "chunk_size",
+                  "description": "分割するページ数",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "dest_folder_id",
+                  "description": "分割後の保存先フォルダ",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "created_file_urls",
+                  "description": "作成された分割PDFのURLリスト",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "MULTIPLE"
+                }
+              ],
+              "onConfigFunction": "onSplitPdfConfig",
+              "onExecuteFunction": "onSplitPdfExecute"
+            }
+          },
+          {
+            "id": "appendAdvancedRowsAction",
+            "state": "ACTIVE",
+            "name": "JSONデータから行を追加",
+            "description": "JSON配列のキーとヘッダー行を照合し、指定した位置にデータを追加します",
+            "workflowAction": {
+              "inputs": [
+                {
+                  "id": "spreadsheet_id",
+                  "cardinality": "SINGLE",
+                  "description": "対象のスプレッドシート",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                },
+                {
+                  "id": "sheet_name",
+                  "cardinality": "SINGLE",
+                  "description": "対象のシート名",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                },
+                {
+                  "id": "insert_position",
+                  "cardinality": "SINGLE",
+                  "description": "データの追加位置",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                },
+                {
+                  "id": "json_data",
+                  "cardinality": "SINGLE",
+                  "description": "追加するデータのJSON配列",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "result_status",
+                  "cardinality": "SINGLE",
+                  "description": "処理結果のステータス",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                }
+              ],
+              "onConfigFunction": "onAppendRowsConfig",
+              "onExecuteFunction": "onAppendRowsExecute"
+            }
+          },
+          {
+            "id": "docsMailMergeAction",
+            "state": "ACTIVE",
+            "name": "JSONデータからドキュメントを作成（差し込み印刷）",
+            "description": "テンプレートドキュメントとJSON配列を結合し、1つのファイルとして出力します",
+            "workflowAction": {
+              "inputs": [
+                {
+                  "id": "template_id",
+                  "cardinality": "SINGLE",
+                  "description": "テンプレートのGoogleドキュメント",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                },
+                {
+                  "id": "dest_folder_id",
+                  "cardinality": "SINGLE",
+                  "description": "保存先フォルダ",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                },
+                {
+                  "id": "json_data",
+                  "cardinality": "SINGLE",
+                  "description": "差し込みデータ(JSON配列)",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                },
+                {
+                  "id": "output_filename",
+                  "cardinality": "SINGLE",
+                  "description": "出力ファイル名",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                },
+                {
+                  "id": "export_format",
+                  "cardinality": "SINGLE",
+                  "description": "出力フォーマット(pdf/ドキュメント)",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "created_file_url",
+                  "cardinality": "SINGLE",
+                  "description": "作成されたファイルのURL",
+                  "dataType": {
+                    "basicType": "STRING"
+                  }
+                }
+              ],
+              "onConfigFunction": "onMailMergeConfig",
+              "onExecuteFunction": "onMailMergeExecute"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
