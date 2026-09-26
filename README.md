@@ -12,7 +12,7 @@ Workspace Studioの機能を限界まで拡張するための、高度なカス�
 
 本ツールキットのアクションを動作させるには、複雑なRaw JSONの生成やレスポンス構築を隠蔽するコアライブラリ **`StudioWrapper`** が必要です。
 
-- **ライブラリID (Script ID):** `1XhLWjQhiO25oEYIf_ygF_AZ7GKOLvXMz1VF8ivqXB-vkkvx8d0H5IrWD`
+- **ライブラリID (Script ID):** `1ka8vVJSaKyYjuGXyJMMxqESfKgV9R6fKCP6kroTIRBZ_0jrIaswR_Sch`
 - 各プロジェクトの `appsscript.json` に依存関係として定義済みですが、手動でスクリプトを作成する場合は、GASエディタの「ライブラリ」から上記IDを追加し、最新バージョンを選択してください。
 
 ---
