@@ -7,17 +7,20 @@
       {
         "userSymbol": "StudioWrapper",
         "libraryId": "1ka8vVJSaKyYjuGXyJMMxqESfKgV9R6fKCP6kroTIRBZ_0jrIaswR_Sch",
-        "version": "1"
+        "version": "2"
       }
     ]
   },
   "oauthScopes": [
-    "https://www.googleapis.com/auth/script.external_request"
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/spreadsheets"
   ],
   "addOns": {
     "common": {
       "name": "Enhancer 4 Studio",
-      "logoUrl": "https://www.gstatic.com/images/branding/product/1x/google_workspace_48dp.png"
+      "logoUrl": "https://kotakahashi-4u.github.io/gas-workspace-studio-toolkit/images/icon128.png"
     },
     "studio": {
       "flows": {
@@ -56,8 +59,8 @@
                   "cardinality": "SINGLE"
                 }
               ],
-              "onConfigFunction": "onWorkflowConfig",
-              "onExecuteFunction": "onWorkflowExecute"
+              "onConfigFunction": "onMoveFileConfig",
+              "onExecuteFunction": "onMoveFileExecute"
             }
           },
           {
@@ -256,8 +259,8 @@
                   }
                 }
               ],
-              "onConfigFunction": "onMailMergeConfig",
-              "onExecuteFunction": "onMailMergeExecute"
+              "onConfigFunction": "onDocsJsonImportConfig",
+              "onExecuteFunction": "onDocsJsonImportExecute"
             }
           }
         ]
