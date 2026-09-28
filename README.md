@@ -22,9 +22,9 @@ Workspace Studioの機能を限界まで拡張するための、高度なカス�
 
 ---
 
-## 🛠️ モジュール一覧
+## 🛠️ 拡張アクション一覧
 
-本リポジトリは、用途ごとに2つのGASプロジェクト（ディレクトリ）に分かれています。
+本リポジトリで実現している現時点の拡張アクションは、以下のとおりです。
 
 ### 1. DriveEx (Google Drive 拡張アクション)
 Google Drive内のファイル・フォルダ操作を自動化するアクション群です。
@@ -40,36 +40,41 @@ Google Sheetsに対する高度なデータ書き込みを自動化するアク�
 
 | アクション名 | 役割 | 入力 (Inputs) | 出力 (Outputs) |
 | :--- | :--- | :--- | :--- |
-| **JSONデータから行を追加** | 任意のJSON配列を受け取り、スプレッドシートの1行目のヘッダー名と自動照合して、一致する列へデータを追記します。不要なJSONキーは自動でスキップされます。 | `spreadsheet_url`: スプシURL<br>`sheet_name`: 対象シート名<br>`insert_position`: 挿入位置<br>`json_data`: JSON配列データ | `result_status`: 実行結果メッセージ（成功時は対象シートへのリンクチップ付きのログを出力） |
+| **JSONデータから行を追加** | 任意のJSON配列を受け取り、スプレッドシートの1行目のヘッダー名と自動照合して、一致する列へデータを追記します。不要なJSONキーはスキップされます。 | `spreadsheet_id`: スプシID<br>`sheet_name`: 対象シート名<br>`insert_position`: 挿入位置<br>`json_data`: JSON配列データ | `result_status`: 実行結果メッセージ（成功時はリンクチップ付きのログを出力） |
 
 💡 **SheetsExの特長（技術的ハイライト）**
 - **動的UI (onChangeAction):** URLを入力してカーソルを外すと、GASが裏側でスプレッドシートにアクセスし、存在するシート一覧をドロップダウンメニューとして動的に展開します。
 - **完全な排他制御 (LockService):** Workspace Studioから同時に複数の書き込みリクエストが発生した場合でも、自動で順番待ち（キューイング）を行い、データの欠損や上書きを防ぎます。
 
+### 3. DocsEx (Google Docs 拡張アクション)
+Google Docsの自動生成やテンプレート処理を行うアクションです。
+
+| アクション名 | 役割 | 入力 (Inputs) | 出力 (Outputs) |
+| :--- | :--- | :--- | :--- |
+| **差し込み印刷** | テンプレートとなるドキュメントとJSON配列を結合し、データを差し込んだ新しいファイル（PDF等）を一括生成します。 | `template_id`: テンプレートID<br>`dest_folder_id`: 保存先フォルダID<br>`json_data`: 差し込みデータ(JSON)<br>`output_filename`: 出力ファイル名<br>`export_format`: 出力フォーマット | `created_file_url`: 作成されたファイルのURL |
+
 ---
 
 ## 🚀 導入手順 (Setup Guide)
-以下では、`SheetsEx` を例としてご説明します。`DriveEx`も同様です。
-
 ### Step 1: Google Apps Script (GAS) への適用
 1. [Google Apps Script](https://script.google.com/) にアクセスし、新しいプロジェクトを作成します。
-2. 本リポジトリの対象フォルダ内にある [code.gs](https://github.com/kotakahashi-4u/gas-workspace-studio-toolkit/blob/main/SheetsEx/code.gs) の中身をコピーし、エディタに貼り付けます。
+2. 本リポジトリの対象フォルダ内にある [code.gs](https://github.com/kotakahashi-4u/gas-workspace-studio-toolkit/tree/main/ToolKit/code.gs) の中身をコピーし、エディタに貼り付けます。
 3. プロジェクト設定の歯車アイコンから「`appsscript.json` マニフェスト ファイルをエディタで表示する」にチェックを入れます。
-4. エディタに表示された `appsscript.json` に、本リポジトリの [同名ファイルの中身](https://github.com/kotakahashi-4u/gas-workspace-studio-toolkit/blob/main/SheetsEx/appsscript.json) を上書き保存します。
+4. エディタに表示された `appsscript.json` に、本リポジトリの [同名ファイルの中身](https://github.com/kotakahashi-4u/gas-workspace-studio-toolkit/tree/main/ToolKit/appsscript.json) を上書き保存します。
 5. （手動の場合）エディタ左側の「ライブラリ」の「＋」を押し、`StudioWrapper` のIDを追加します。
 6. 右上の「デプロイ」>「デプロイをテスト」を選択し、アプリケーションの種類から「Google Workspace アドオン」として「インストール」をクリックします。
 
 ### Step 2: Google Workspace Studio への適用
 1. Google Workspace Studio のフロー編集画面を開きます。
 2. アクションを追加したい箇所で「＋ ステップを追加」または「ステップの選択」をクリックします。
-3. 右側に表示されるアクション一覧パネルから、インストールした拡張機能のカテゴリ（例: `Drive拡張` や `Sheets拡張`）を探します。
+3. 右側に表示されるアクション一覧パネルから、インストールした拡張機能のカテゴリ（**Enhancer 4 Studio**）を探します。
 4. その中から、追加したいアクション（例: `JSONデータから行を追加`）のカードをクリックして選択します。
 5. 設定画面（Config）が開くので、前段のステップの出力変数（PDFのURLリストや、Geminiが生成したJSONなど）を各入力項目にマッピングし、「Save」を押します。
 
 ---
 
 ## ⚠️ 注意事項と制限
-- PDF分割処理（DriveEx）は、GASの実行時間制限（6分）の影響を受けるため、極端にページ数の多いPDFや重いファイルの処理にはご注意ください。
+- 一部の処理は、GASの実行時間制限（2分）の影響を受けるため、極端にページ数の多いPDFや重いファイルの処理にはご注意ください。
 
 ---
 
@@ -78,7 +83,8 @@ Google Sheetsに対する高度なデータ書き込みを自動化するアク�
 本ツールキットの基盤として独自開発した `StudioWrapper` は、Workspace Studioのカスタムアクション開発における「GAS特有の冗長な記述」や「UIの仕様制限」をハックし、直感的な開発体験を提供する強力なラッパーライブラリです。
 
 ### 1. StudioWrapperの特長
-- **Raw JSONレンダリングエンジン:** 公式の `CardService` が抱えるバグ（ドロップダウンが強制的にテキストボックスにダウングレードされる問題など）を回避するため、Workspace Studioが要求する厳密なRaw JSONを直接構築して返却します。
+- **CardServiceの完全カプセル化:** 公式の `CardService` の複雑な階層構造（`PlatformDataSource` や `HostAppDataSource` の深いネスト、変数マッピングの並列追加など）を意識することなく、シンプルなオブジェクト配列を渡すだけで、システムが要求する堅牢なUIを自動構築します。
+- **入力値の万能パーサー機能:** `StudioWrapper.parseInputs(e)` を呼び出すだけで、設定画面(Config)の過去保存値、現在入力値、実行時(Execute)の入力値を自動判定し、フラットな連想配列として一括抽出します。
 - **出力処理の隠蔽:** 配列（リスト）か単一値かを自動判別し、冗長な `AddOnsResponseService` の記述を一行のオブジェクト形式に圧縮します。
 - **リッチログの標準化:** マテリアルアイコンやリンクチップを含むアクティビティログの生成を標準サポートしています。
 
@@ -145,7 +151,10 @@ function onWorkflowConfig() {
 }
 
 function onWorkflowExecute(e) {
-  const inputVal = e.workflow.actionInvocation.inputs["input_text"].stringValues[0];
+  // 複雑な階層からの値取得も、万能パーサーと分割代入で1行に圧縮
+  const { input_text: inputVal } = StudioWrapper.parseInputs(e);
+  
+  // 出力変数とログの構築も1行で完結
   return StudioWrapper.buildExecuteResponse({ "result_text": `【処理済】${inputVal}` });
 }
 ```
@@ -185,7 +194,22 @@ function onConfigFunction() {
 }
 ```
 
-**③ 単一の変数（文字列・数値）を返す**
+**③ 複雑な入力値をフラットなオブジェクトとして一発で受け取る**
+```javascript
+function onExecuteFunction(e) {
+  // 設定画面(Config)でも実行時(Execute)でも同じメソッドで抽出可能。
+  // 分割代入を使えば、変数へのマッピングとデフォルト値の設定が1行で行えます。
+  const { 
+    folder_id: destFolderId,
+    sheet_name: sheetName = "シート1", // デフォルト値の指定
+    multiple_items: items = []         // 複数選択(配列)の受け取り
+  } = StudioWrapper.parseInputs(e);
+  
+  // 処理ロジック...
+}
+```
+
+**④ 単一の変数（文字列・数値）を返す**
 ```javascript
 function onExecuteFunction(e) {
   // 処理ロジック...
@@ -196,7 +220,7 @@ function onExecuteFunction(e) {
 }
 ```
 
-**④ リスト（配列）を変数として返す（ループ処理用）**
+**⑤ リスト（配列）を変数として返す（ループ処理用）**
 ```javascript
 function onExecuteFunction(e) {
   // マニフェスト側で "cardinality": "MULTIPLE" に設定したキーに配列を渡すだけで、
@@ -209,7 +233,7 @@ function onExecuteFunction(e) {
 }
 ```
 
-**⑤ エラー発生時に、処理を中断してエラーログを出力する**
+**⑥ エラー発生時に、処理を中断してエラーログを出力する**
 ```javascript
 function onExecuteFunction(e) {
   try {
