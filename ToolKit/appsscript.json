@@ -7,7 +7,7 @@
       {
         "userSymbol": "StudioWrapper",
         "libraryId": "1ka8vVJSaKyYjuGXyJMMxqESfKgV9R6fKCP6kroTIRBZ_0jrIaswR_Sch",
-        "version": "2"
+        "version": "3"
       }
     ]
   },
@@ -35,6 +35,7 @@
                 {
                   "id": "file_id",
                   "description": "移動するアイテム(ファイル/フォルダ)",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   },
@@ -43,6 +44,7 @@
                 {
                   "id": "folder_id",
                   "description": "移動先のフォルダ",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   },
@@ -60,19 +62,21 @@
                 }
               ],
               "onConfigFunction": "onMoveFileConfig",
-              "onExecuteFunction": "onMoveFileExecute"
+              "onExecuteFunction": "onMoveFileExecute",
+              "onSaveFunction": "onMoveFileSave"
             }
           },
           {
             "id": "checkRootAction",
             "state": "ACTIVE",
-            "name": "追加したアイテムがルートフォルダ直下かどうかを判定する",
+            "name": "追加したアイテムが指定フォルダ直下かどうかを判定する",
             "description": "アイテムが指定したフォルダの直下にあるかを判定します",
             "workflowAction": {
               "inputs": [
                 {
                   "id": "item_id",
                   "description": "判定対象のアイテム",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   },
@@ -80,7 +84,8 @@
                 },
                 {
                   "id": "root_folder_id",
-                  "description": "ルートとなるフォルダ",
+                  "description": "対象となるフォルダ",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   },
@@ -98,7 +103,8 @@
                 }
               ],
               "onConfigFunction": "onCheckRootConfig",
-              "onExecuteFunction": "onCheckRootExecute"
+              "onExecuteFunction": "onCheckRootExecute",
+              "onSaveFunction": "onCheckRootSave"
             }
           },
           {
@@ -111,6 +117,7 @@
                 {
                   "id": "split_file_id",
                   "description": "分割対象のPDFファイル",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   },
@@ -119,6 +126,7 @@
                 {
                   "id": "chunk_size",
                   "description": "分割するページ数",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   },
@@ -127,6 +135,7 @@
                 {
                   "id": "dest_folder_id",
                   "description": "分割後の保存先フォルダ",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   },
@@ -144,7 +153,8 @@
                 }
               ],
               "onConfigFunction": "onSplitPdfConfig",
-              "onExecuteFunction": "onSplitPdfExecute"
+              "onExecuteFunction": "onSplitPdfExecute",
+              "onSaveFunction": "onSplitPdfSave"
             }
           },
           {
@@ -158,6 +168,7 @@
                   "id": "spreadsheet_id",
                   "cardinality": "SINGLE",
                   "description": "対象のスプレッドシート",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   }
@@ -166,6 +177,7 @@
                   "id": "sheet_name",
                   "cardinality": "SINGLE",
                   "description": "対象のシート名",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   }
@@ -174,6 +186,7 @@
                   "id": "insert_position",
                   "cardinality": "SINGLE",
                   "description": "データの追加位置",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   }
@@ -182,6 +195,7 @@
                   "id": "json_data",
                   "cardinality": "SINGLE",
                   "description": "追加するデータのJSON配列",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   }
@@ -197,12 +211,13 @@
                   }
                 }
               ],
-              "onConfigFunction": "onAppendRowsConfig",
-              "onExecuteFunction": "onAppendRowsExecute"
+              "onConfigFunction": "onAppendAdvancedRowsConfig",
+              "onExecuteFunction": "onAppendAdvancedRowsExecute",
+              "onSaveFunction": "onAppendAdvancedRowsSave"
             }
           },
           {
-            "id": "docsMailMergeAction",
+            "id": "docsDocsJsonImportAction",
             "state": "ACTIVE",
             "name": "JSONデータからドキュメントを作成（差し込み印刷）",
             "description": "テンプレートドキュメントとJSON配列を結合し、1つのファイルとして出力します",
@@ -212,6 +227,7 @@
                   "id": "template_id",
                   "cardinality": "SINGLE",
                   "description": "テンプレートのGoogleドキュメント",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   }
@@ -220,6 +236,7 @@
                   "id": "dest_folder_id",
                   "cardinality": "SINGLE",
                   "description": "保存先フォルダ",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   }
@@ -228,6 +245,7 @@
                   "id": "json_data",
                   "cardinality": "SINGLE",
                   "description": "差し込みデータ(JSON配列)",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   }
@@ -236,6 +254,7 @@
                   "id": "output_filename",
                   "cardinality": "SINGLE",
                   "description": "出力ファイル名",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   }
@@ -244,6 +263,7 @@
                   "id": "export_format",
                   "cardinality": "SINGLE",
                   "description": "出力フォーマット(pdf/ドキュメント)",
+                  "required": true,
                   "dataType": {
                     "basicType": "STRING"
                   }
@@ -260,7 +280,8 @@
                 }
               ],
               "onConfigFunction": "onDocsJsonImportConfig",
-              "onExecuteFunction": "onDocsJsonImportExecute"
+              "onExecuteFunction": "onDocsJsonImportExecute",
+              "onSaveFunction": "onDocsJsonImportSave"
             }
           }
         ]
