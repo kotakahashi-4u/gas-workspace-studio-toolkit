@@ -6,11 +6,11 @@
 
 /**
  * Workspace Studioのフロー設定画面（アイテム移動アクション用）を構築します。
- * マニフェストファイルの "onConfigFunction": "onWorkflowConfig" に対応します。
+ * マニフェストファイルの "onConfigFunction": "onMoveFileConfig" に対応します。
  * 
  * @returns {GoogleAppsScript.Card_Service.ActionResponse} 構築された設定画面のカードレスポンス
  */
-function onWorkflowConfig() {
+function onMoveFileConfig() {
   return StudioWrapper.buildConfigCard(
     "",
     [
@@ -34,27 +34,26 @@ function onWorkflowConfig() {
 
 /**
  * Workspace Studioから呼び出され、実際のアイテム移動処理を実行します。
- * マニフェストファイルの "onExecuteFunction": "onWorkflowExecute" に対応します。
+ * マニフェストファイルの "onExecuteFunction": "onMoveFileExecute" に対応します。
  * 
  * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
  * @returns {Object} AddOnsResponseServiceを用いた実行結果とアクティビティログのレスポンス
  */
-function onWorkflowExecute(e) {
+function onMoveFileExecute(e) {
   let resultMessage = "";
   let logConfig = null; // 実行履歴へのログ出力設定用オブジェクト
 
   try {
     // 1. イベントオブジェクトから入力値（ID）を取得
-    const itemId = e.workflow.actionInvocation.inputs["file_id"].stringValues[0];
-    const folderId = e.workflow.actionInvocation.inputs["folder_id"].stringValues[0];
+    const { file_id, folder_id } = StudioWrapper.parseInputs(e);
     
-    if (!itemId || !folderId) {
+    if (!file_id || !folder_id) {
       throw new Error("アイテムまたはフォルダが選択されていません。");
     }
 
     // 2. DriveAppを使用して対象アイテムと移動先フォルダを取得
-    const item = getDriveItem(itemId);
-    const destFolder = DriveApp.getFolderById(folderId);
+    const item = getDriveItem(file_id);
+    const destFolder = DriveApp.getFolderById(folder_id);
     const itemName = item.getName();
     const folderUrl = destFolder.getUrl();
     
@@ -76,7 +75,6 @@ function onWorkflowExecute(e) {
 
   } catch (error) {
     resultMessage = `【エラー】${error.message}`;
-    
     // エラー時のログ出力設定
     logConfig = {
       isError: true,
@@ -141,15 +139,14 @@ function onCheckRootExecute(e) {
 
   try {
     // 1. 入力値の取得
-    const itemId = e.workflow.actionInvocation.inputs["item_id"].stringValues[0];
-    const rootFolderId = e.workflow.actionInvocation.inputs["root_folder_id"].stringValues[0];
+    const { item_id, root_folder_id } = StudioWrapper.parseInputs(e);
 
-    if (!itemId || !rootFolderId) {
+    if (!item_id || !root_folder_id) {
       throw new Error(`アイテムまたはルートフォルダが選択されていません。`);
     }
 
     // 2. 判定対象アイテムを取得
-    const item = getDriveItem(itemId); 
+    const item = getDriveItem(item_id); 
     const itemName = item.getName();
     const itemUrl = item.getUrl();
     
@@ -159,7 +156,7 @@ function onCheckRootExecute(e) {
     // 4. 親フォルダの中に指定したルートフォルダのIDが含まれているかを反復してチェック
     while (parents.hasNext()) {
       const parent = parents.next();
-      if (parent.getId() === rootFolderId) {
+      if (parent.getId() === root_folder_id) {
         // 一致した場合、対象アイテムは指定ルートフォルダの直下にあると判定
         isChild = true;
         break;
@@ -250,18 +247,16 @@ async function onSplitPdfExecute(e) {
 
   try {
     // 1. 入力値の受け取り
-    const fileId = e.workflow.actionInvocation.inputs["split_file_id"].stringValues[0];
-    const chunkSizeStr = e.workflow.actionInvocation.inputs["chunk_size"].stringValues[0];
-    const folderId = e.workflow.actionInvocation.inputs["dest_folder_id"].stringValues[0];
+    const { split_file_id, chunk_size, dest_folder_id } = StudioWrapper.parseInputs(e);
 
-    const chunkSize = parseInt(chunkSizeStr, 10);
+    const chunkSize = parseInt(chunk_size, 10);
 
-    if (!fileId || !folderId || isNaN(chunkSize)) {
+    if (!split_file_id || !dest_folder_id || isNaN(chunkSize)) {
       throw new Error("ファイル、フォルダ、またはページ数の指定が正しくありません。");
     }
 
-    const file = DriveApp.getFileById(fileId);
-    const destFolder = DriveApp.getFolderById(folderId);
+    const file = DriveApp.getFileById(split_file_id);
+    const destFolder = DriveApp.getFolderById(dest_folder_id);
     const originalName = file.getName();
     const folderUrl = destFolder.getUrl();
 
@@ -502,12 +497,14 @@ function onAppendRowsExecute(e) {
 
   try {
     // 1. 入力値の受け取り
-    // UI側の不整合等で値が未定義(undefined)の場合のクラッシュを防ぐため、オプショナルチェーニングを適用
-    const inputs = e.workflow.actionInvocation.inputs || {};
-    const ssId = inputs["spreadsheet_id"]?.stringValues?.[0];
-    const sheetName = inputs["sheet_name"]?.stringValues?.[0];
-    const insertPosition = inputs["insert_position"]?.stringValues?.[0] || "after_last";
-    const jsonString = inputs["json_data"]?.stringValues?.[0];
+    // StudioWrapperを用いて、複雑な階層から入力値をフラットなオブジェクトとして一括抽出します
+    // 分割代入のエイリアス（:）を利用して既存の変数名にマッピングし、初期値（=）もスマートに設定します
+    const {
+      spreadsheet_id: ssId,
+      sheet_name: sheetName,
+      insert_position: insertPosition = "after_last",
+      json_data: jsonString
+    } = StudioWrapper.parseInputs(e);
 
     // 必須項目の入力チェック
     if (!ssId) throw new Error("スプレッドシートが選択されていません。");
@@ -640,7 +637,7 @@ function onAppendRowsExecute(e) {
  * 
  * @returns {Object} StudioWrapperで構築された設定画面のカードレスポンス
  */
-function onMailMergeConfig() {
+function onDocsJsonImportConfig() {
   return StudioWrapper.buildConfigCard(
     "",
     [
@@ -691,18 +688,19 @@ function onMailMergeConfig() {
  * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
  * @returns {Object} 処理結果（ファイルURL）とアクティビティログを格納したレスポンス
  */
-function onMailMergeExecute(e) {
+function onDocsJsonImportExecute(e) {
   let createdFileUrl = "";
   let logConfig = null;
 
   try {
     // 1. 入力値の受け取り
-    const inputs = e.workflow.actionInvocation.inputs || {};
-    const templateId = inputs["template_id"]?.stringValues?.[0];
-    const destFolderId = inputs["dest_folder_id"]?.stringValues?.[0];
-    const jsonString = inputs["json_data"]?.stringValues?.[0];
-    const outputFilename = inputs["output_filename"]?.stringValues?.[0] || "自動生成ドキュメント";
-    const exportFormat = inputs["export_format"]?.stringValues?.[0] || "pdf";
+    const {
+      template_id: templateId,
+      dest_folder_id: destFolderId,
+      json_data: jsonString,
+      output_filename: outputFilename = "自動生成ドキュメント",
+      export_format: exportFormat = "pdf",
+    } = StudioWrapper.parseInputs(e);
 
     if (!templateId || !destFolderId || !jsonString) {
       throw new Error("テンプレート、保存先フォルダ、JSONデータのいずれかが不足しています。");
