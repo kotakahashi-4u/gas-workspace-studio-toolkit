@@ -87,6 +87,7 @@ Google Docsの自動生成やテンプレート処理を行うアクションで
 - **入力値の万能パーサー機能:** `StudioWrapper.parseInputs(e)` を呼び出すだけで、設定画面(Config)の過去保存値、現在入力値、実行時(Execute)の入力値を自動判定し、フラットな連想配列として一括抽出します。
 - **出力処理の隠蔽:** 配列（リスト）か単一値かを自動判別し、冗長な `AddOnsResponseService` の記述を一行のオブジェクト形式に圧縮します。
 - **リッチログの標準化:** マテリアルアイコンやリンクチップを含むアクティビティログの生成を標準サポートしています。
+- **直感的なバリデーション:** マニフェストだけではカバーしきれない高度な入力チェックをサポート。ウィジェット設定に1行書き足すだけの「クライアント側バリデーション（文字数や形式の制限）」と、エラー時に設定画面へ差し戻す「サーバー側バリデーション（`buildSaveError` / `buildSaveSuccess`）」を、複雑な処理なしで実装できます。
 
 ### 2. 劇的なコードの簡略化（Before / After）
 Workspace Studioで「実行結果を変数として返しつつ、ログを出力する」という単純な処理を行う場合、ネイティブのGASでは非常に深くネストされた冗長なコードを書く必要があります。
@@ -246,5 +247,44 @@ function onExecuteFunction(e) {
       chip: { label: "エラー詳細", icon: StudioWrapper.ICON_ERROR }
     });
   }
+}
+```
+
+**⑦ クライアント側バリデーション（文字数・形式の制限）**
+```javascript
+function onConfigFunction() {
+  return StudioWrapper.buildConfigCard("ユーザー設定", [
+    { 
+      type: StudioWrapper.TEXT_INPUT, 
+      id: "user_email", 
+      title: "メールアドレス",
+      // validationオブジェクトを足すだけで、ブラウザ側で即座に入力制限がかかります
+      validation: { 
+        characterLimit: 100, 
+        inputType: StudioWrapper.INPUT_TYPE_EMAIL 
+      }
+    }
+  ]);
+}
+```
+
+**⑧ サーバー側バリデーション（独自のエラーチェックと画面の差し戻し）**
+```javascript
+// マニフェストで "onSaveFunction": "onSaveFunction" を設定して使用します
+function onSaveFunction(e) {
+  const { folder_id } = StudioWrapper.parseInputs(e);
+
+  // 独自の検証ロジック（例：DRIVE_PICKERが空欄でないか等）
+  if (!folder_id) {
+    // 失敗時: エラーメッセージを表示して画面を差し戻す（CRITICALエラーとしてブロック）
+    const errorCard = StudioWrapper.buildConfigCard("設定", [
+      { type: StudioWrapper.TEXT_PARAGRAPH, text: "<font color=\"#FF0000\">エラー: フォルダを選択してください。</font>" },
+      { type: StudioWrapper.DRIVE_PICKER, id: "folder_id", title: "フォルダ" }
+    ]);
+    return StudioWrapper.buildSaveError(errorCard);
+  }
+
+  // 成功時: 設定を保存して次のステップへ進む
+  return StudioWrapper.buildSaveSuccess();
 }
 ```
