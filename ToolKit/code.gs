@@ -5,31 +5,71 @@
  */
 
 /**
+ * [UI構築ヘルパー] 移動アクションの設定画面UIを構築します。
+ * 初回表示とエラー時の再描画で共通利用します。
+ * 
+ * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ可）
+ * @returns {Object} 構築されたカード配列
+ */
+function buildMoveFileConfigUI(errorMessage = "") {
+  const inputs = [];
+  
+  if (errorMessage) {
+    inputs.push({ type: StudioWrapper.TEXT_PARAGRAPH, text: errorMessage });
+  }
+
+  inputs.push(
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "file_id", 
+      title: "移動するアイテム*",
+      hint: "前のステップの ID またはリンク変数を選択します"
+      // ※TEXT_INPUTのためマニフェストのrequired: trueによる自動検証(赤枠)が有効
+    },
+    { 
+      type: StudioWrapper.DRIVE_PICKER,
+      id: "folder_id", 
+      title: "移動先フォルダ*", // マニフェスト検証が効かないため明示
+      hint: "ドライブから場所を選択するか、前のステップの ID またはリンク変数を選択します", 
+      itemTypes: [StudioWrapper.PICKER_FOLDERS]
+    }
+  );
+
+  return StudioWrapper.buildConfigCard("", inputs);
+}
+
+/**
  * Workspace Studioのフロー設定画面（アイテム移動アクション用）を構築します。
  * マニフェストファイルの "onConfigFunction": "onMoveFileConfig" に対応します。
  * 
- * @returns {GoogleAppsScript.Card_Service.ActionResponse} 構築された設定画面のカードレスポンス
+ * @returns {Object} 構築された設定画面のカードレスポンス
  */
 function onMoveFileConfig() {
-  return StudioWrapper.buildConfigCard(
-    "",
-    [
-      { 
-        type: StudioWrapper.TEXT_INPUT,
-        id: "file_id", 
-        title: "移動するアイテム*",
-        hint: "前のステップの ID またはリンク変数を選択します", 
-        itemTypes: [] // すべてのアイテムを許可
-      },
-      { 
-        type: StudioWrapper.DRIVE_PICKER,
-        id: "folder_id", 
-        title: "移動先フォルダ*",
-        hint: "ドライブから場所を選択するか、前のステップの ID またはリンク変数を選択します", 
-        itemTypes: [StudioWrapper.PICKER_FOLDERS]
-      }
-    ]
-  );
+  // 初回表示時はエラーメッセージなしでUIを構築
+  return buildMoveFileConfigUI();
+}
+
+/**
+ * 保存時のサーバー側バリデーション処理。
+ * マニフェストファイルの "onSaveFunction": "onMoveFileSave" に対応します。
+ * DRIVE_PICKERの未選択エラーを補完し、安全な保存を保証します。
+ * 
+ * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
+ * @returns {Object} 成功/失敗に応じたレスポンス
+ */
+function onMoveFileSave(e) {
+  // 1. 万能パーサーで現在の入力値を取得
+  const { folder_id } = StudioWrapper.parseInputs(e);
+
+  // 2. DRIVE_PICKERの空欄チェック
+  if (!folder_id) {
+    // エラーメッセージを差し込んでUIを再構築し、CRITICALエラーとしてブロック
+    const errorCard = buildMoveFileConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 移動先フォルダを選択してください。</font>");
+    return StudioWrapper.buildSaveError(errorCard);
+  }
+
+  // 3. 正常に入力されていれば保存を許可
+  return StudioWrapper.buildSaveSuccess();
 }
 
 /**
@@ -51,9 +91,12 @@ function onMoveFileExecute(e) {
       throw new Error("アイテムまたはフォルダが選択されていません。");
     }
 
-    // 2. DriveAppを使用して対象アイテムと移動先フォルダを取得
+    // 2. DriveAppを使用して対象アイテムと移動先フォルダを取得（URL対応）
+    const safeFolderId = extractDriveId(folder_id);
+    if (!safeFolderId) throw new Error("移動先フォルダのIDを正しく抽出できませんでした。");
+
     const item = getDriveItem(file_id);
-    const destFolder = DriveApp.getFolderById(folder_id);
+    const destFolder = DriveApp.getFolderById(safeFolderId);
     const itemName = item.getName();
     const folderUrl = destFolder.getUrl();
     
@@ -74,6 +117,9 @@ function onMoveFileExecute(e) {
     };
 
   } catch (error) {
+    // GASのコンソールに詳細なエラーログを出力
+    console.error(error.stack || error.message);
+
     resultMessage = `【エラー】${error.message}`;
     // エラー時のログ出力設定
     logConfig = {
@@ -95,34 +141,69 @@ function onMoveFileExecute(e) {
 
 /**
  * =========================================================
- * DriveEx: 2. ルート直下判定アクション
+ * DriveEx: 2. 指定直下判定アクション
  * =========================================================
  */
 
 /**
- * Workspace Studioのフロー設定画面（ルート直下判定アクション用）を構築します。
+ * [UI構築ヘルパー] 指定直下判定アクションの設定画面UIを構築します。
+ * 初回表示時およびバリデーションエラー時の再描画において共通利用されます。
+ * 
+ * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ使用可）
+ * @returns {Object} StudioWrapperで構築されたカードレスポンス
+ */
+function buildCheckRootConfigUI(errorMessage = "") {
+  const inputs = [];
+  
+  if (errorMessage) {
+    inputs.push({ type: StudioWrapper.TEXT_PARAGRAPH, text: errorMessage });
+  }
+
+  inputs.push(
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "item_id", 
+      title: "判定対象のアイテムを選択*", 
+      itemTypes: []
+    },
+    { 
+      type: StudioWrapper.DRIVE_PICKER,
+      id: "root_folder_id", 
+      title: "指定フォルダの場所*", 
+      itemTypes: [StudioWrapper.PICKER_FOLDERS]
+    }
+  );
+
+  return StudioWrapper.buildConfigCard("", inputs);
+}
+
+/**
+ * Workspace Studioのフロー設定画面（指定直下判定アクション用）を構築します。
  * マニフェストファイルの "onConfigFunction": "onCheckRootConfig" に対応します。
  * 
- * @returns {GoogleAppsScript.Card_Service.ActionResponse} 構築された設定画面のカードレスポンス
+ * @returns {Object} 構築された設定画面のカードレスポンス
  */
 function onCheckRootConfig() {
-  return StudioWrapper.buildConfigCard(
-    "",
-    [
-      { 
-        type: StudioWrapper.TEXT_INPUT,
-        id: "item_id", 
-        title: "判定対象のアイテムを選択", 
-        itemTypes: []
-      },
-      { 
-        type: StudioWrapper.DRIVE_PICKER,
-        id: "root_folder_id", 
-        title: "ルートフォルダの場所", 
-        itemTypes: [StudioWrapper.PICKER_FOLDERS]
-      }
-    ]
-  );
+  return buildCheckRootConfigUI();
+}
+
+/**
+ * 保存時のサーバー側バリデーション処理。
+ * マニフェストファイルの "onSaveFunction": "onCheckRootSave" に対応します。
+ * DRIVE_PICKERウィジェットの未選択状態を検知し、安全なデータ保存を保証します。
+ * 
+ * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
+ * @returns {Object} 検証結果に応じたレスポンス（成功時は保存許可、エラー時は画面再描画）
+ */
+function onCheckRootSave(e) {
+  const { root_folder_id } = StudioWrapper.parseInputs(e);
+
+  if (!root_folder_id) {
+    const errorCard = buildCheckRootConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 指定フォルダの場所を選択してください。</font>");
+    return StudioWrapper.buildSaveError(errorCard);
+  }
+
+  return StudioWrapper.buildSaveSuccess();
 }
 
 /**
@@ -141,12 +222,14 @@ function onCheckRootExecute(e) {
     // 1. 入力値の取得
     const { item_id, root_folder_id } = StudioWrapper.parseInputs(e);
 
-    if (!item_id || !root_folder_id) {
-      throw new Error(`アイテムまたはルートフォルダが選択されていません。`);
+    const safeRootFolderId = extractDriveId(root_folder_id);
+
+    if (!item_id || !safeRootFolderId) {
+      throw new Error(`アイテムまたは指定フォルダが正しく選択されていません。`);
     }
 
     // 2. 判定対象アイテムを取得
-    const item = getDriveItem(item_id); 
+    const item = getDriveItem(item_id);
     const itemName = item.getName();
     const itemUrl = item.getUrl();
     
@@ -156,7 +239,7 @@ function onCheckRootExecute(e) {
     // 4. 親フォルダの中に指定したルートフォルダのIDが含まれているかを反復してチェック
     while (parents.hasNext()) {
       const parent = parents.next();
-      if (parent.getId() === root_folder_id) {
+      if (parent.getId() === safeRootFolderId) {
         // 一致した場合、対象アイテムは指定ルートフォルダの直下にあると判定
         isChild = true;
         break;
@@ -166,7 +249,7 @@ function onCheckRootExecute(e) {
     // 成功時のログ出力設定（対象アイテムへのリンクチップを付与）
     logConfig = {
       isError: false,
-      message: `「${itemName}」は指定ルートフォルダの直下に${isChild ? "存在します" : "存在しません"}。`,
+      message: `「${itemName}」は指定フォルダの直下に${isChild ? "存在します" : "存在しません"}。`,
       chip: {
         label: "対象アイテムを確認",
         url: itemUrl,
@@ -175,6 +258,9 @@ function onCheckRootExecute(e) {
     };
 
   } catch (error) {
+    // GASのコンソールに詳細なエラーログを出力
+    console.error(error.stack || error.message);
+
     isChild = false; 
     
     // エラー時のログ出力設定
@@ -202,36 +288,75 @@ function onCheckRootExecute(e) {
  */
 
 /**
+ * [UI構築ヘルパー] PDF分割アクションの設定画面UIを構築します。
+ * 初回表示時およびバリデーションエラー時の再描画において共通利用されます。
+ * 
+ * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ使用可）
+ * @returns {Object} StudioWrapperで構築されたカードレスポンス
+ */
+function buildSplitPdfConfigUI(errorMessage = "") {
+  const inputs = [];
+  
+  if (errorMessage) {
+    inputs.push({ type: StudioWrapper.TEXT_PARAGRAPH, text: errorMessage });
+  }
+
+  inputs.push(
+    { 
+      type: StudioWrapper.DRIVE_PICKER,
+      id: "split_file_id", 
+      title: "分割対象のPDFファイル*", 
+      itemTypes: [StudioWrapper.PICKER_PDFS]
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "chunk_size", 
+      title: "分割するページ数 (固定値のみ)*", 
+      hint: "例: 10 （※変数は使用できません）",
+      validation: {
+        characterLimit: 2,
+        inputType: StudioWrapper.INPUT_TYPE_INTEGER
+      },
+      includeVariables: false
+    },
+    { 
+      type: StudioWrapper.DRIVE_PICKER,
+      id: "dest_folder_id", 
+      title: "分割後の保存先フォルダの場所*", 
+      itemTypes: [StudioWrapper.PICKER_FOLDERS]
+    }
+  );
+
+  return StudioWrapper.buildConfigCard("", inputs);
+}
+
+/**
  * Workspace Studioのフロー設定画面（PDF分割アクション用）を構築します。
  * マニフェストファイルの "onConfigFunction": "onSplitPdfConfig" に対応します。
  * 
- * @returns {GoogleAppsScript.Card_Service.ActionResponse} 構築された設定画面のカードレスポンス
+ * @returns {Object} 構築された設定画面のカードレスポンス
  */
 function onSplitPdfConfig() {
-  return StudioWrapper.buildConfigCard(
-    "",
-    [
-      { 
-        type: StudioWrapper.DRIVE_PICKER,
-        id: "split_file_id", 
-        title: "分割対象のPDFファイル", 
-        itemTypes: [StudioWrapper.PICKER_PDFS]
-      },
-      { 
-        type: StudioWrapper.TEXT_INPUT,
-        id: "chunk_size", 
-        title: "分割するページ数 (固定値のみ)", 
-        hint: "例: 10 （※変数は使用できません）",
-        includeVariables: false // 変数マッピングを禁止
-      },
-      { 
-        type: StudioWrapper.DRIVE_PICKER,
-        id: "dest_folder_id", 
-        title: "分割後の保存先フォルダの場所", 
-        itemTypes: [StudioWrapper.PICKER_FOLDERS]
-      }
-    ]
-  );
+  return buildSplitPdfConfigUI();
+}
+
+/**
+ * 保存時のサーバー側バリデーション処理。
+ * マニフェストファイルの "onSaveFunction": "onSplitPdfSave" に対応します。
+ * 複数のDRIVE_PICKERウィジェットの未選択状態を検知し、安全なデータ保存を保証します。
+ * 
+ * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
+ * @returns {Object} 検証結果に応じたレスポンス（成功時は保存許可、エラー時は画面再描画）
+ */
+function onSplitPdfSave(e) {
+  const { split_file_id, dest_folder_id } = StudioWrapper.parseInputs(e);
+
+  if (!split_file_id || !dest_folder_id) {
+    const errorCard = buildSplitPdfConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 分割対象のPDFファイルと、保存先フォルダの両方を選択してください。</font>");
+    return StudioWrapper.buildSaveError(errorCard);
+  }
+
+  return StudioWrapper.buildSaveSuccess();
 }
 
 /**
@@ -255,8 +380,16 @@ async function onSplitPdfExecute(e) {
       throw new Error("ファイル、フォルダ、またはページ数の指定が正しくありません。");
     }
 
-    const file = DriveApp.getFileById(split_file_id);
-    const destFolder = DriveApp.getFolderById(dest_folder_id);
+    // URLが渡された場合でも安全に処理できるよう、ヘルパー関数でIDのみを抽出する
+    const safeFileId = extractDriveId(split_file_id);
+    const safeFolderId = extractDriveId(dest_folder_id);
+
+    if (!safeFileId || !safeFolderId) {
+      throw new Error("ファイルまたはフォルダのURLから正しいIDを抽出できませんでした。");
+    }
+
+    const file = DriveApp.getFileById(safeFileId);
+    const destFolder = DriveApp.getFolderById(safeFolderId);
     const originalName = file.getName();
     const folderUrl = destFolder.getUrl();
 
@@ -309,6 +442,9 @@ async function onSplitPdfExecute(e) {
     };
 
   } catch (error) {
+    // GASのコンソールに詳細なエラーログを出力
+    console.error(error.stack || error.message);
+
     // エラー時のログ出力設定
     logConfig = {
       isError: true,
@@ -337,153 +473,157 @@ async function onSplitPdfExecute(e) {
  */
 
 /**
- * 1. 初回ロード（またはリロード）時にWorkspace Studioから呼び出される設定画面構築関数。
- * マニフェストファイルの "onConfigFunction": "onAppendRowsConfig" に対応します。
- * 
- * 過去に保存された設定値が存在する場合は、それを取得して
- * 自動的にスプレッドシートへアクセスし、対象シート名のドロップダウンリストを復元します。
+ * [ヘルパー関数] イベントオブジェクトから設定値を抽出し、シート一覧のオプション配列を生成します。
+ * Config初回表示、onChange更新、Save時のエラー再描画のすべてで共通利用されます。
  * 
  * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
- * @returns {Object} 構築された設定画面のカードレスポンス(push_card)
+ * @returns {Array<Object>} ドロップダウン用のオプション配列
  */
-function onAppendRowsConfig(e) {
+function getSheetOptions(e) {
   let sheetOptions = [
     { text: "先にスプレッドシートを選択してください", value: "", selected: true }
   ];
   let savedSheetName = "";
 
   try {
-    // 画面リロード時等にWorkspace Studioから渡される正しいデータパス(elementConfiguration)から
-    // 過去に保存されたIDとシート名を安全に抽出する
-    const savedId = e?.formInput?.spreadsheet_id || 
-                     e?.workflow?.elementConfiguration?.inputs?.spreadsheet_id?.stringValues?.[0] ||
-                     null;
-                     
-    savedSheetName = e?.formInput?.sheet_name || 
-                     e?.workflow?.elementConfiguration?.inputs?.sheet_name?.stringValues?.[0] ||
-                     "";
+    // StudioWrapperの万能パーサーで、過去の保存値または現在の入力値から安全に抽出
+    const { spreadsheet_id: savedId = null, sheet_name = "" } = StudioWrapper.parseInputs(e);
+    savedSheetName = sheet_name;
 
-    // 保存されているIDが存在する場合は、スプレッドシートへアクセスしシート一覧を取得する
-    if (savedId) {
-      const ss = SpreadsheetApp.openById(savedId);
+    // スプレッドシートIDが存在する場合はアクセスしてシート一覧を取得（URL対応）
+    const safeSavedId = extractDriveId(savedId);
+    if (safeSavedId) {
+      const ss = SpreadsheetApp.openById(safeSavedId);
       const sheets = ss.getSheets();
       
-      // 取得したシート一覧をドロップダウン用のオプション配列(text, value, selected)にマッピング
-      sheetOptions = sheets.map(sheet => {
+      sheetOptions = sheets.map((sheet, index) => {
         const name = sheet.getName();
+        // 保存されたシート名がない（初回選択時など）場合は、自動的に1枚目を選択状態にする
+        const isSelected = savedSheetName ? (name === savedSheetName) : (index === 0);
         return {
           text: name,
           value: name,
-          // 過去に保存されたシート名と一致するものを初期選択状態にする
-          selected: savedSheetName ? (name === savedSheetName) : false
+          selected: isSelected
         };
       });
       
-      // フェールセーフ：保存されていたシート名が削除等で一覧に存在しなかった場合は、強制的に1枚目を選択
       if (!sheetOptions.some(opt => opt.selected)) {
         sheetOptions[0].selected = true;
       }
     }
   } catch (error) {
-    // 権限エラー等でシートが取得できなかった場合は、エラーメッセージをドロップダウンに表示
     sheetOptions = [
       { text: `エラー: ${error.message}`, value: "", selected: true }
     ];
   }
-
-  // 共通のカード構築ロジックへオプション配列を渡し、新規追加(isUpdate=false)として描画
-  return buildDynamicCard(sheetOptions, false);
+  return sheetOptions;
 }
 
 /**
- * 2. 入力欄から値が変更された時 (onChangeAction) に呼び出されるコールバック関数。
- * ユーザーがPickerで新しいファイルを選択した際に、動的にシート一覧を取得してUIを再描画します。
- * 
- * @param {Object} e - フォーム入力値(e.formInput)を含むイベントオブジェクト
- * @returns {Object} 構築された設定画面のカードレスポンス(update_card)
- */
-function onUrlChange(e) {
-  let newSheetOptions = [];
-  
-  try {
-    // フォーム入力値からIDを取得
-    const ssId = e.formInput ? e.formInput.spreadsheet_id : null;
-    if (!ssId) throw new Error("スプレッドシートが選択されていません");
-
-    const ss = SpreadsheetApp.openById(ssId);
-    const sheets = ss.getSheets();
-
-    // 取得したシート一覧をドロップダウン用オプションに変換（onChange時は常に1枚目をデフォルト選択）
-    newSheetOptions = sheets.map((sheet, index) => ({
-      text: sheet.getName(),
-      value: sheet.getName(),
-      selected: index === 0
-    }));
-
-  } catch (error) {
-    newSheetOptions = [
-      { text: `エラー: ${error.message}`, value: "", selected: true }
-    ];
-  }
-
-  // 共通のカード構築ロジックへオプション配列を渡し、カード更新(isUpdate=true)として再描画
-  return buildDynamicCard(newSheetOptions, true);
-}
-
-
-/**
- * [ヘルパー関数] 設定画面のカードUI構造を構築します。
- * 初回表示時(onAppendRowsConfig)と動的更新時(onUrlChange)で同一のUIを保証するために共通化しています。
+ * [UI構築ヘルパー] JSONデータ追加アクションの設定画面UI（入力フォーム配列）を構築します。
  * 
  * @param {Array<Object>} sheetOptions - 対象シート名のドロップダウンに表示する選択肢の配列
- * @param {boolean} isUpdate - カードを更新(update_card)するか新規追加(push_card)するかのフラグ
- * @returns {Object} StudioWrapperを通じて構築されたアクションレスポンス
+ * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ使用可）
+ * @returns {Array<Object>} 構築された入力フォーム設定の配列
  */
-function buildDynamicCard(sheetOptions, isUpdate) {
-  return StudioWrapper.buildConfigCard(
-    "",
-    [
-      { 
-        type: StudioWrapper.DRIVE_PICKER,
-        id: "spreadsheet_id", 
-        title: "対象のスプレッドシートを選択", 
-        itemTypes: [StudioWrapper.PICKER_SPREADSHEETS],
-        onChangeAction: "onUrlChange", // 値の変更を検知してUIを再描画するためのトリガー 
-      },
-      { 
-        type: StudioWrapper.SELECTION,
-        id: "sheet_name", 
-        title: "対象シート名", 
-        selectionType: StudioWrapper.DROPDOWN,
-        options: sheetOptions,
-        includeVariables: false 
-      },
-      { 
-        type: StudioWrapper.SELECTION,
-        id: "insert_position", 
-        title: "行を追加",
-        selectionType: StudioWrapper.DROPDOWN,
-        options: [
-          { text: "最後のデータ行の後", value: "after_last", selected: true },
-          { text: "最初の行の後", value: "after_first" }
-        ],
-        includeVariables: false 
-      },
-      { 
-        type: StudioWrapper.TEXT_INPUT,
-        id: "json_data", 
-        title: "追加するデータ (JSON配列)", 
-        hint: '例: [{"お名前": "山田", "年齢": 30}]',
-        multiline: true
-      }
-    ],
-    isUpdate 
+function buildAppendAdvancedRowsInputs(sheetOptions, errorMessage = "") {
+  const inputs = [];
+  
+  if (errorMessage) {
+    inputs.push({ type: StudioWrapper.TEXT_PARAGRAPH, text: errorMessage });
+  }
+
+  inputs.push(
+    { 
+      type: StudioWrapper.DRIVE_PICKER,
+      id: "spreadsheet_id", 
+      title: "対象のスプレッドシート*", 
+      itemTypes: [StudioWrapper.PICKER_SPREADSHEETS],
+      onChangeAction: "onAppendAdvancedRowsUrlChange" 
+    },
+    { 
+      type: StudioWrapper.SELECTION,
+      id: "sheet_name", 
+      title: "対象シート名*", 
+      selectionType: StudioWrapper.DROPDOWN,
+      options: sheetOptions,
+      includeVariables: false 
+    },
+    { 
+      type: StudioWrapper.SELECTION,
+      id: "insert_position", 
+      title: "行を追加*",
+      selectionType: StudioWrapper.DROPDOWN,
+      options: [
+        { text: "最後のデータ行の後", value: "after_last", selected: true },
+        { text: "最初の行の後", value: "after_first" }
+      ],
+      includeVariables: false 
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "json_data", 
+      title: "追加するデータ (JSON配列)*", 
+      hint: '例: [{"お名前": "山田", "年齢": 30}]',
+      multiline: true
+    }
   );
+  
+  return inputs;
+}
+
+/**
+ * Workspace Studioの設定画面（Config）初回ロード時に呼び出される関数です。
+ * マニフェストファイルの "onConfigFunction": "onAppendAdvancedRowsConfig" に対応します。
+ * 
+ * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
+ * @returns {Object} 構築された設定画面のカードレスポンス(push_card)
+ */
+function onAppendAdvancedRowsConfig(e) {
+  const sheetOptions = getSheetOptions(e);
+  const inputs = buildAppendAdvancedRowsInputs(sheetOptions);
+  return StudioWrapper.buildConfigCard("", inputs, false);
+}
+
+/**
+ * スプレッドシートの選択が変更された時 (onChangeAction) に呼び出されるコールバック関数です。
+ * シート一覧を動的に取得してUIを再描画します。
+ * 
+ * @param {Object} e - フォーム入力値を含むイベントオブジェクト
+ * @returns {Object} 構築された設定画面のカードレスポンス(update_card)
+ */
+function onAppendAdvancedRowsUrlChange(e) {
+  const sheetOptions = getSheetOptions(e);
+  const inputs = buildAppendAdvancedRowsInputs(sheetOptions);
+  return StudioWrapper.buildConfigCard("", inputs, true);
+}
+
+/**
+ * 保存時のサーバー側バリデーション処理です。
+ * マニフェストファイルの "onSaveFunction": "onAppendAdvancedRowsSave" に対応します。
+ * ピッカーおよびドロップダウンの未選択状態を検知し、安全なデータ保存を保証します。
+ * 
+ * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
+ * @returns {Object} 検証結果に応じたレスポンス
+ */
+function onAppendAdvancedRowsSave(e) {
+  const { spreadsheet_id, sheet_name } = StudioWrapper.parseInputs(e);
+  
+  if (!spreadsheet_id || !sheet_name) {
+    // 画面を差し戻す際も、動的ドロップダウンを復元するためにオプションを再取得してカードを構築
+    const sheetOptions = getSheetOptions(e);
+    const inputs = buildAppendAdvancedRowsInputs(sheetOptions, "<font color=\"#FF0000\"><b>エラー:</b> スプレッドシートと対象シートを両方選択してください。</font>");
+    
+    // buildSaveErrorには「ヘッダー」と「入力設定配列」を渡す仕様
+    return StudioWrapper.buildSaveError("", inputs);
+  }
+  
+  return StudioWrapper.buildSaveSuccess();
 }
 
 /**
  * Workspace Studioから呼び出され、実際にJSON配列をパースしてシートにデータを追加します。
- * マニフェストファイルの "onExecuteFunction": "onAppendRowsExecute" に対応します。
+ * マニフェストファイルの "onExecuteFunction": "onAppendAdvancedRowsExecute" に対応します。
  * 
  * 複数のフローから同時に呼び出された場合でもデータが上書きされないよう、
  * LockServiceを用いた厳密な排他制御（キューイング）を実装しています。
@@ -491,14 +631,12 @@ function buildDynamicCard(sheetOptions, isUpdate) {
  * @param {Object} e - 入力値(inputs)を含むイベントオブジェクト
  * @returns {Object} 処理結果メッセージ(result_status)を格納したレスポンス
  */
-function onAppendRowsExecute(e) {
+function onAppendAdvancedRowsExecute(e) {
   let resultMessage = "";
   let logConfig = {}; // 実行履歴へのログ出力設定用オブジェクト
 
   try {
     // 1. 入力値の受け取り
-    // StudioWrapperを用いて、複雑な階層から入力値をフラットなオブジェクトとして一括抽出します
-    // 分割代入のエイリアス（:）を利用して既存の変数名にマッピングし、初期値（=）もスマートに設定します
     const {
       spreadsheet_id: ssId,
       sheet_name: sheetName,
@@ -511,8 +649,11 @@ function onAppendRowsExecute(e) {
     if (!sheetName) throw new Error("対象シート名が入力されていません。");
     if (!jsonString) throw new Error("追加するJSONデータが入力されていません。");
 
-    // スプレッドシートと対象シートのオブジェクトを取得
-    const ss = SpreadsheetApp.openById(ssId);
+    // スプレッドシートと対象シートのオブジェクトを取得（URL対応）
+    const safeSsId = extractDriveId(ssId);
+    if (!safeSsId) throw new Error("スプレッドシートのIDを正しく抽出できませんでした。");
+
+    const ss = SpreadsheetApp.openById(safeSsId);
     const sheet = ss.getSheetByName(sheetName);
     if (!sheet) throw new Error(`シート「${sheetName}」が見つかりません。`);
 
@@ -567,35 +708,33 @@ function onAppendRowsExecute(e) {
     // 5. 排他制御（LockService）を用いた安全なデータ書き込み
     // ========================================================
     const lock = LockService.getScriptLock();
+    
+    // ロック取得専用のtry-catch（タイムアウト時のエラーを正確に捕捉）
     try {
-      // 競合を防ぐためスクリプトの実行をロック。他プロセスが実行中の場合は最大30秒待機する。
       lock.waitLock(30000);
+    } catch (lockError) {
+      console.error("ロック取得タイムアウト: " + lockError.message);
+      throw new Error("同時処理が集中したため書き込みに失敗しました（タイムアウト）");
+    }
 
-      // 書き込み位置の分岐
+    // 書き込み処理専用のtry-finally（処理後は必ずロックを解放）
+    try {
       if (insertPosition === "after_first") {
-        // 先頭(ヘッダーの直後)に空行を挿入してから書き込む
         sheet.insertRowsAfter(1, numRowsToInsert);
         sheet.getRange(2, 1, numRowsToInsert, numColsToInsert).setValues(dataToInsert);
       } else {
-        // 最新の最終行をロック獲得後に再取得し、その後ろに書き込む
         const latestLastRow = sheet.getLastRow();
         sheet.getRange(latestLastRow + 1, 1, numRowsToInsert, numColsToInsert).setValues(dataToInsert);
       }
 
-      // スプレッドシートへの変更を強制的に反映（確定）させる。
-      // これにより、ロック解除直後に別プロセスが古い最終行を読み取るのを防ぐ。
       SpreadsheetApp.flush();
-
-    } catch (lockError) {
-      throw new Error(`同時処理が集中したため書き込みに失敗しました（タイムアウト）`);
     } finally {
-      // 処理の成否に関わらず、必ずロックを解放する
       lock.releaseLock();
     }
 
     resultMessage = `【成功】${numRowsToInsert}件のデータを追加しました。`;
+    console.log(resultMessage);
 
-    // 成功時のログ出力設定
     logConfig = {
       isError: false,
       message: `${numRowsToInsert}行のデータを追加しました。`,
@@ -607,9 +746,11 @@ function onAppendRowsExecute(e) {
     };
 
   } catch (error) {
+    // GASのコンソールに詳細なエラーログを出力
+    console.error(error.stack || error.message);
+    
     resultMessage = `【エラー】${error.message}`;
 
-    // エラー時のログ出力設定
     logConfig = {
       isError: true,
       message: `行の追加に失敗しました: ${error.message}`,
@@ -620,7 +761,6 @@ function onAppendRowsExecute(e) {
     };
   }
 
-  // 6. 処理結果とログ設定をStudioWrapperに渡して返却
   return StudioWrapper.buildExecuteResponse({ 
     "result_status": resultMessage 
   }, logConfig);
@@ -633,52 +773,88 @@ function onAppendRowsExecute(e) {
  */
 
 /**
- * Workspace Studioのフロー設定画面（差し込み印刷アクション用）を構築します。
+ * [UI構築ヘルパー] 差し込み印刷アクションの設定画面UIを構築します。
+ * 初回表示時およびバリデーションエラー時の再描画において共通利用されます。
  * 
- * @returns {Object} StudioWrapperで構築された設定画面のカードレスポンス
+ * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ使用可）
+ * @returns {Object} StudioWrapperで構築されたカードレスポンス
+ */
+function buildDocsJsonImportConfigUI(errorMessage = "") {
+  const inputs = [];
+  
+  if (errorMessage) {
+    inputs.push({ type: StudioWrapper.TEXT_PARAGRAPH, text: errorMessage });
+  }
+
+  inputs.push(
+    { 
+      type: StudioWrapper.DRIVE_PICKER,
+      id: "template_id", 
+      title: "テンプレートのGoogleドキュメント*", 
+      itemTypes: [StudioWrapper.PICKER_DOCUMENTS]
+    },
+    { 
+      type: StudioWrapper.DRIVE_PICKER,
+      id: "dest_folder_id", 
+      title: "保存先フォルダの場所*", 
+      itemTypes: [StudioWrapper.PICKER_FOLDERS]
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "json_data", 
+      title: "差し込みデータ (JSON配列)*", 
+      hint: '例: [{"会社名": "A社", "金額": 100}, {"会社名": "B社", "金額": 200}]',
+      multiline: true
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "output_filename", 
+      title: "出力ファイル名*", 
+      hint: "例: 請求書一括出力_202610（※拡張子は不要です）" 
+    },
+    { 
+      type: StudioWrapper.SELECTION,
+      id: "export_format", 
+      title: "出力フォーマット*",
+      selectionType: StudioWrapper.DROPDOWN,
+      options: [
+        { text: "PDFとして出力する", value: "pdf", selected: true },
+        { text: "Googleドキュメントとして出力する", value: "doc" }
+      ],
+      includeVariables: false 
+    }
+  );
+
+  return StudioWrapper.buildConfigCard("", inputs);
+}
+
+/**
+ * Workspace Studioのフロー設定画面（差し込み印刷アクション用）を構築します。
+ * マニフェストファイルの "onConfigFunction": "onDocsJsonImportConfig" に対応します。
+ * 
+ * @returns {Object} 構築された設定画面のカードレスポンス
  */
 function onDocsJsonImportConfig() {
-  return StudioWrapper.buildConfigCard(
-    "",
-    [
-      { 
-        type: StudioWrapper.DRIVE_PICKER,
-        id: "template_id", 
-        title: "テンプレートのGoogleドキュメント", 
-        itemTypes: [StudioWrapper.PICKER_DOCUMENTS]
-      },
-      { 
-        type: StudioWrapper.DRIVE_PICKER,
-        id: "dest_folder_id", 
-        title: "保存先フォルダの場所", 
-        itemTypes: [StudioWrapper.PICKER_FOLDERS]
-      },
-      { 
-        type: StudioWrapper.TEXT_INPUT,
-        id: "json_data", 
-        title: "差し込みデータ (JSON配列)", 
-        hint: '例: [{"会社名": "A社", "金額": 100}, {"会社名": "B社", "金額": 200}]',
-        multiline: true
-      },
-      { 
-        type: StudioWrapper.TEXT_INPUT,
-        id: "output_filename", 
-        title: "出力ファイル名", 
-        hint: "例: 請求書一括出力_202610（※拡張子は不要です）" 
-      },
-      { 
-        type: StudioWrapper.SELECTION,
-        id: "export_format", 
-        title: "出力フォーマット",
-        selectionType: StudioWrapper.DROPDOWN,
-        options: [
-          { text: "PDFとして出力する", value: "pdf", selected: true },
-          { text: "Googleドキュメントとして出力する", value: "doc" }
-        ],
-        includeVariables: false 
-      }
-    ]
-  );
+  return buildDocsJsonImportConfigUI();
+}
+
+/**
+ * 保存時のサーバー側バリデーション処理。
+ * マニフェストファイルの "onSaveFunction": "onDocsJsonImportSave" に対応します。
+ * 複数のDRIVE_PICKERウィジェットの未選択状態を検知し、安全なデータ保存を保証します。
+ * 
+ * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
+ * @returns {Object} 検証結果に応じたレスポンス（成功時は保存許可、エラー時は画面再描画）
+ */
+function onDocsJsonImportSave(e) {
+  const { template_id, dest_folder_id } = StudioWrapper.parseInputs(e);
+
+  if (!template_id || !dest_folder_id) {
+    const errorCard = buildDocsJsonImportConfigUI("<font color=\"#FF0000\"><b>エラー:</b> テンプレートと保存先フォルダの両方を選択してください。</font>");
+    return StudioWrapper.buildSaveError(errorCard);
+  }
+
+  return StudioWrapper.buildSaveSuccess();
 }
 
 /**
@@ -691,6 +867,7 @@ function onDocsJsonImportConfig() {
 function onDocsJsonImportExecute(e) {
   let createdFileUrl = "";
   let logConfig = null;
+  let tempDocId = null; // エラー発生時のクリーンアップ用にIDをスコープ外で保持
 
   try {
     // 1. 入力値の受け取り
@@ -717,15 +894,22 @@ function onDocsJsonImportExecute(e) {
 
     if (jsonData.length === 0) throw new Error("処理するデータが空です。");
 
-    // 3. ドキュメントとフォルダの取得
-    const templateDoc = DocumentApp.openById(templateId);
+    // 3. ドキュメントとフォルダの取得（URL対応）
+    const safeTemplateId = extractDriveId(templateId);
+    const safeDestFolderId = extractDriveId(destFolderId);
+
+    if (!safeTemplateId || !safeDestFolderId) {
+      throw new Error("テンプレートまたは保存先フォルダのIDを正しく抽出できませんでした。");
+    }
+
+    const templateDoc = DocumentApp.openById(safeTemplateId);
     const templateBody = templateDoc.getBody();
     const templateElements = templateBody.getNumChildren();
-    const destFolder = DriveApp.getFolderById(destFolderId);
+    const destFolder = DriveApp.getFolderById(safeDestFolderId);
 
     // 4. 結合用の一時ドキュメントを作成
     const tempDoc = DocumentApp.create(`【一時ファイル】${outputFilename}`);
-    const tempDocId = tempDoc.getId();
+    tempDocId = tempDoc.getId(); // クリーンアップ用にIDを記録
     const tempBody = tempDoc.getBody();
     
     let isFirstPage = true;
@@ -785,13 +969,15 @@ function onDocsJsonImportExecute(e) {
       // PDFとして保存
       const pdfBlob = tempFile.getAs('application/pdf');
       finalFile = destFolder.createFile(pdfBlob).setName(`${outputFilename}.pdf`);
-      // 一時ドキュメントをゴミ箱へ
+      // PDF化が完了したため、一時ドキュメントをゴミ箱へ移動
       tempFile.setTrashed(true);
+      tempDocId = null; // クリーンアップ完了
     } else {
       // ドキュメントとして指定フォルダへ移動してリネーム
       tempFile.moveTo(destFolder);
       tempFile.setName(outputFilename);
       finalFile = tempFile;
+      tempDocId = null; // 移動完了のためクリーンアップ不要
     }
 
     createdFileUrl = finalFile.getUrl();
@@ -809,6 +995,18 @@ function onDocsJsonImportExecute(e) {
     };
 
   } catch (error) {
+    // GASのコンソールに詳細なエラーログを出力
+    console.error(error.stack || error.message);
+
+    // 処理途中でエラーが発生した場合、作成された一時ドキュメントをゴミ箱へ移動してリソースリークを防ぐ
+    if (tempDocId) {
+      try {
+        DriveApp.getFileById(tempDocId).setTrashed(true);
+      } catch (cleanupError) {
+        console.error("一時ファイルのクリーンアップに失敗しました: " + cleanupError.message);
+      }
+    }
+
     // エラー時のログ出力設定
     logConfig = {
       isError: true,
