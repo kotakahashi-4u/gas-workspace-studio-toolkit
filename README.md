@@ -81,6 +81,8 @@ Google Docsの自動生成やテンプレート処理を行うアクションで
 ## 📚 付録: 独自ライブラリ「StudioWrapper」について
 
 本ツールキットの基盤として独自開発した `StudioWrapper` は、Workspace Studioのカスタムアクション開発における「GAS特有の冗長な記述」や「UIの仕様制限」をハックし、直感的な開発体験を提供する強力なラッパーライブラリです。
+> ** 開発者向け詳細ドキュメント**
+> 各メソッドの引数、戻り値、利用可能な定数の一覧については、[StudioWrapper API リファレンス](./API_REFERENCE.md) をご参照ください。
 
 ### 1. StudioWrapperの特長
 - **CardServiceの完全カプセル化:** 公式の `CardService` の複雑な階層構造（`PlatformDataSource` や `HostAppDataSource` の深いネスト、変数マッピングの並列追加など）を意識することなく、シンプルなオブジェクト配列を渡すだけで、システムが要求する堅牢なUIを自動構築します。
