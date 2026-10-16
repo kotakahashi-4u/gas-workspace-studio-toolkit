@@ -13,7 +13,7 @@ Workspace Studioの機能を限界まで拡張するための、高度なカス�
 本ツールキットのアクションを動作させるには、複雑なRaw JSONの生成やレスポンス構築を隠蔽するコアライブラリ **`StudioWrapper`** が必要です。
 
 - **ライブラリID (Script ID):** `1ka8vVJSaKyYjuGXyJMMxqESfKgV9R6fKCP6kroTIRBZ_0jrIaswR_Sch`
-- 各プロジェクトの `appsscript.json` に依存関係として定義済みですが、手動でスクリプトを作成する場合は、GASエディタの「ライブラリ」から上記IDを追加し、最新バージョンを選択してください。
+- プロジェクトの `appsscript.json` に依存関係として定義済みですが、手動でスクリプトを作成する場合は、GASエディタの「ライブラリ」から上記IDを追加し、最新バージョンを選択してください。
 
 ---
 
@@ -34,6 +34,7 @@ Google Drive内のファイル・フォルダ操作を自動化するアクシ�
 | **アイテム移動** | 指定したファイルやフォルダを、目的のフォルダへ移動します。 | `file_url`: 移動対象のURL<br>`folder_url`: 移動先のURL | `result_status`: 実行結果メッセージ（成功時はリンクチップ付きのログを出力） |
 | **ルート直下判定** | 対象アイテムが、指定した親フォルダの直下（1階層目）に存在するかをブール値で返します。 | `item_url`: 判定対象のURL<br>`root_folder_url`: 親フォルダのURL | `is_direct_child`: 判定結果 (Boolean) |
 | **PDF分割** | 指定したPDFファイルを、指定ページ数ごとに分割して別ファイルとして保存します。(pdf-lib使用) | `split_file_url`: PDFのURL<br>`chunk_size`: 分割単位(整数)<br>`dest_folder_url`: 保存先URL | `created_file_urls`: 分割生成されたPDFのURLリスト (Array) |
+| **ファイルまたはフォルダ名を変更** | 指定したドライブアイテムの名前を変更します。ファイルの場合は元の拡張子が自動的に引き継がれます。 | `item_id`: 対象アイテムのURLまたはID<br>`new_name`: 新しい名前 | `result_status`: 実行結果メッセージ（成功時はリンクチップ付きのログを出力） |
 
 ### 2. SheetsEx (Google Sheets 拡張アクション)
 Google Sheetsに対する高度なデータ書き込みを自動化するアクションです。
@@ -52,6 +53,13 @@ Google Docsの自動生成やテンプレート処理を行うアクションで
 | アクション名 | 役割 | 入力 (Inputs) | 出力 (Outputs) |
 | :--- | :--- | :--- | :--- |
 | **差し込み印刷** | テンプレートとなるドキュメントとJSON配列を結合し、データを差し込んだ新しいファイル（PDF等）を一括生成します。 | `template_id`: テンプレートID<br>`dest_folder_id`: 保存先フォルダID<br>`json_data`: 差し込みデータ(JSON)<br>`output_filename`: 出力ファイル名<br>`export_format`: 出力フォーマット | `created_file_url`: 作成されたファイルのURL |
+
+### 4. ImageEx (画像加工 拡張アクション)
+画像の加工や編集を自動化するアクション群です。
+
+| アクション名 | 役割 | 入力 (Inputs) | 出力 (Outputs) |
+| :--- | :--- | :--- | :--- |
+| **画像ファイルの特定箇所を加工** | 画像と座標データ(JSON)を受け取り、指定領域に枠線・塗りつぶし・モザイクなどの加工を行い、新しいファイルとして保存します。(Jimp使用) | `image_file_id`: 対象画像のURLまたはID<br>`rectangles_json`: 加工領域の座標データ(JSON)<br>`process_type`: 加工の種類<br>`dest_folder_id`: 保存先フォルダのURL | `processed_image_url`: 加工済み画像のURL |
 
 ---
 
