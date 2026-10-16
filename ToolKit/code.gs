@@ -138,7 +138,6 @@ function onMoveFileExecute(e) {
   }, logConfig);
 }
 
-
 /**
  * =========================================================
  * DriveEx: 2. 指定直下判定アクション
@@ -277,6 +276,156 @@ function onCheckRootExecute(e) {
   // 5. StudioWrapperを使用して、真偽値（Boolean）とログ設定をマッピングして返却
   return StudioWrapper.buildExecuteResponse({ 
     "is_direct_child": isChild 
+  }, logConfig);
+}
+
+/**
+ * =========================================================
+ * DriveEx: ファイルまたはフォルダの名前変更アクション
+ * =========================================================
+ */
+
+/**
+ * [UI構築ヘルパー] リネームアクションの設定画面UIを構築します。
+ * 初回表示とエラー時の再描画で共通利用します。
+ * 
+ * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ可）
+ * @returns {Object} 構築されたカードレスポンス
+ */
+function buildRenameItemConfigUI(errorMessage = "") {
+  const inputs = [];
+  
+  if (errorMessage) {
+    inputs.push({ type: StudioWrapper.TEXT_PARAGRAPH, text: errorMessage });
+  }
+
+  inputs.push(
+    { 
+      type: StudioWrapper.DRIVE_PICKER,
+      id: "item_id", 
+      title: "対象アイテム*",
+      hint: "ドライブから選択するか、前のステップの変数を割り当ててください"
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "new_name", 
+      title: "新しい名前*",
+      hint: "変数を組み合わせて動的な名前を設定できます。（ファイルの場合は元の拡張子が自動で引き継がれます）",
+      multiline: true
+    }
+  );
+
+  return StudioWrapper.buildConfigCard("", inputs);
+}
+
+/**
+ * Workspace Studioのフロー設定画面（アイテムリネーム用）を構築します。
+ * 
+ * @returns {Object} 構築された設定画面のレスポンス
+ */
+function onRenameItemConfig() {
+  return buildRenameItemConfigUI();
+}
+
+/**
+ * 保存時のサーバー側バリデーション処理。
+ * DRIVE_PICKERやテキストの空欄チェックを行い、安全な保存を保証します。
+ * 
+ * @param {Object} e 
+ * @returns {Object} 成功/失敗に応じたレスポンス
+ */
+function onRenameItemSave(e) {
+  const { item_id, new_name } = StudioWrapper.parseInputs(e);
+
+  if (!item_id || !new_name) {
+    const errorCard = buildRenameItemConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 対象アイテムと新しい名前の両方を入力してください。</font>");
+    return StudioWrapper.buildSaveError(errorCard);
+  }
+
+  return StudioWrapper.buildSaveSuccess();
+}
+
+/**
+ * 実際の名前変更処理を実行します。
+ * 
+ * @param {Object} e 
+ * @returns {Object} 実行結果とアクティビティログのレスポンス
+ */
+function onRenameItemExecute(e) {
+  let resultMessage = "";
+  let logConfig = null;
+
+  try {
+    // 1. 入力値の取得
+    const { item_id, new_name } = StudioWrapper.parseInputs(e);
+    
+    if (!item_id || !new_name) {
+      throw new Error("アイテムまたは新しい名前が指定されていません。");
+    }
+
+    const safeItemId = extractDriveId(item_id);
+    if (!safeItemId) throw new Error("対象アイテムのIDを正しく抽出できませんでした。");
+
+    // 2. アイテムの取得
+    const item = getDriveItem(safeItemId);
+    const oldName = item.getName();
+    const itemUrl = item.getUrl();
+    
+    let finalName = new_name.replace(/\r?\n/g, "").trim();
+
+    // 3. ファイル判定と拡張子の自動引き継ぎ処理
+    let isFile = false;
+    try {
+      if (typeof item.getMimeType === 'function') {
+        isFile = true;
+      }
+    } catch (err) {
+      isFile = false;
+    }
+
+    if (isFile) {
+      // 元のファイル名から拡張子を抽出 (例: ".pdf")
+      const extMatch = oldName.match(/\.[^.]+$/);
+      if (extMatch) {
+        const ext = extMatch[0];
+        // 新しい名前にすでに同じ拡張子が含まれていない場合のみ付与する
+        if (!finalName.toLowerCase().endsWith(ext.toLowerCase())) {
+          finalName += ext;
+        }
+      }
+    }
+
+    // 4. リネームの実行
+    item.setName(finalName);
+
+    resultMessage = `【成功】アイテム名を「${finalName}」に変更しました`;
+    
+    logConfig = {
+      isError: false,
+      message: `「${oldName}」を「${finalName}」に変更しました。`,
+      chip: {
+        label: "アイテムを開く",
+        url: itemUrl,
+        icon: isFile ? StudioWrapper.ICON_FILE : StudioWrapper.ICON_FOLDER
+      }
+    };
+
+  } catch (error) {
+    console.error(error.stack || error.message);
+
+    resultMessage = `【エラー】${error.message}`;
+    logConfig = {
+      isError: true,
+      message: `名前の変更に失敗しました: ${error.message}`,
+      chip: {
+        label: "エラーの詳細",
+        icon: StudioWrapper.ICON_ERROR
+      }
+    };
+  }
+
+  return StudioWrapper.buildExecuteResponse({ 
+    "result_status": resultMessage 
   }, logConfig);
 }
 
@@ -462,6 +611,241 @@ async function onSplitPdfExecute(e) {
   }, logConfig);
 }
 
+/**
+ * =========================================================
+ * ImageEx: 画像加工アクション (Jimp使用)
+ * =========================================================
+ */
+
+/**
+ * [UI構築ヘルパー] 画像加工アクションの設定画面UIを構築します。
+ * 初回表示時およびバリデーションエラー時の再描画において共通利用されます。
+ * 
+ * @param {string} [errorMessage=""] - エラー時に表示するメッセージ
+ * @returns {Object} StudioWrapperで構築されたカードレスポンス
+ */
+function buildProcessImageConfigUI(errorMessage = "") {
+  const inputs = [];
+  
+  if (errorMessage) {
+    inputs.push({ type: StudioWrapper.TEXT_PARAGRAPH, text: errorMessage });
+  }
+
+  inputs.push(
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "image_file_id", 
+      title: "対象ファイル*", 
+      hint: "前のステップのファイルID、またはリンク変数を選択します"
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "rectangles_json", 
+      title: "座標データ (JSON配列)*", 
+      hint: '例: [{"x1": 10, "y1": 20, "x2": 100, "y2": 150}]',
+      multiline: true
+    },
+    { 
+      type: StudioWrapper.SELECTION,
+      id: "process_type", 
+      title: "加工の種類*",
+      selectionType: StudioWrapper.DROPDOWN,
+      options: [
+        { text: "赤枠", value: "red_frame", selected: true },
+        { text: "青枠", value: "blue_frame" },
+        { text: "黒塗りつぶし", value: "black_fill" },
+        { text: "白塗りつぶし", value: "white_fill" },
+        { text: "モザイク処理", value: "mosaic" }
+      ],
+      includeVariables: false 
+    },
+    { 
+      type: StudioWrapper.DRIVE_PICKER,
+      id: "dest_folder_id", 
+      title: "保存先フォルダの場所*", 
+      itemTypes: [StudioWrapper.PICKER_FOLDERS]
+    }
+  );
+
+  return StudioWrapper.buildConfigCard("", inputs);
+}
+
+/**
+ * Workspace Studioのフロー設定画面（画像加工アクション用）を構築します。
+ * 
+ * @returns {Object} 構築された設定画面のカードレスポンス
+ */
+function onProcessImageConfig() {
+  return buildProcessImageConfigUI();
+}
+
+/**
+ * 保存時のサーバー側バリデーション処理。
+ * 
+ * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
+ * @returns {Object} 検証結果に応じたレスポンス
+ */
+function onProcessImageSave(e) {
+  const { dest_folder_id } = StudioWrapper.parseInputs(e);
+
+  if (!dest_folder_id) {
+    const errorCard = buildProcessImageConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 保存先フォルダを選択してください。</font>");
+    return StudioWrapper.buildSaveError(errorCard);
+  }
+
+  return StudioWrapper.buildSaveSuccess();
+}
+
+/**
+ * Workspace Studioから呼び出され、Jimpライブラリを用いて画像を加工し保存します。
+ * 
+ * @param {Object} e - Workspace Studioから渡されるイベントオブジェクト
+ * @returns {Object} 作成された画像URLとアクティビティログを格納したレスポンス
+ */
+async function onProcessImageExecute(e) {
+  let createdFileUrl = "";
+  let logConfig = null;
+
+  try {
+    // 1. 入力値の受け取り
+    const { 
+      image_file_id, 
+      rectangles_json, 
+      process_type, 
+      dest_folder_id 
+    } = StudioWrapper.parseInputs(e);
+
+    if (!image_file_id || !rectangles_json || !dest_folder_id) {
+      throw new Error("必要な入力項目が不足しています。");
+    }
+
+    // JSONデータのパース
+    let rects = [];
+    try {
+      rects = JSON.parse(rectangles_json);
+      if (!Array.isArray(rects)) rects = [rects];
+    } catch (err) {
+      throw new Error(`JSONの形式が正しくありません: ${err.message}`);
+    }
+
+    // IDの抽出とファイルの取得
+    const safeFileId = extractDriveId(image_file_id);
+    const safeFolderId = extractDriveId(dest_folder_id);
+    if (!safeFileId || !safeFolderId) throw new Error("IDを抽出できませんでした。");
+
+    const file = DriveApp.getFileById(safeFileId);
+    const destFolder = DriveApp.getFolderById(safeFolderId);
+    const originalName = file.getName();
+    const mimeType = file.getMimeType();
+
+    if (mimeType !== MimeType.JPEG && mimeType !== MimeType.PNG) {
+      throw new Error("加工できる画像はJPEGまたはPNGのみです。");
+    }
+
+    // Jimpで読み込むために画像のバイト配列をArrayBufferに変換
+    const fileBytes = file.getBlob().getBytes();
+    const arrayBuffer = new Uint8Array(fileBytes).buffer;
+
+    // 2. Jimpのロードとポリフィル設定
+    globalThis.window = globalThis;
+    globalThis.self = globalThis;
+    globalThis.setTimeout = function(callback, delay) { callback(); };
+    globalThis.clearTimeout = function() {};
+
+    const jimpUrl = "https://cdn.jsdelivr.net/npm/jimp/browser/lib/jimp.min.js";
+    const jimpCode = UrlFetchApp.fetch(jimpUrl).getContentText();
+    eval(jimpCode); // Jimp をグローバルに展開
+
+    // 3. 画像の読み込みと加工処理 (URL文字列ではなくバイナリを直接渡し、XHRを回避)
+    const image = await Jimp.read(arrayBuffer);
+
+    // 色の定義
+    const colorRed = Jimp.rgbaToInt(255, 0, 0, 255);
+    const colorBlue = Jimp.rgbaToInt(0, 0, 255, 255);
+    const colorBlack = Jimp.rgbaToInt(0, 0, 0, 255);
+    const colorWhite = Jimp.rgbaToInt(255, 255, 255, 255);
+
+    rects.forEach(rect => {
+      const imgW = image.bitmap.width;
+      const imgH = image.bitmap.height;
+
+      // 0〜1000の相対座標を、実際の画像サイズに基づくピクセル座標に変換
+      const px1 = Math.round((parseFloat(rect.x1) / 1000) * imgW);
+      const py1 = Math.round((parseFloat(rect.y1) / 1000) * imgH);
+      const px2 = Math.round((parseFloat(rect.x2) / 1000) * imgW);
+      const py2 = Math.round((parseFloat(rect.y2) / 1000) * imgH);
+
+      // 座標が画像サイズをオーバーしないよう制限（大小の逆転も考慮）
+      const x1 = Math.max(0, Math.min(px1, px2));
+      const y1 = Math.max(0, Math.min(py1, py2));
+      const x2 = Math.min(imgW - 1, Math.max(px1, px2));
+      const y2 = Math.min(imgH - 1, Math.max(py1, py2));
+      
+      const w = x2 - x1;
+      const h = y2 - y1;
+
+      if (w <= 0 || h <= 0) return; // 無効な矩形はスキップ
+
+      if (process_type === 'red_frame' || process_type === 'blue_frame') {
+        const color = process_type === 'red_frame' ? colorRed : colorBlue;
+        const thickness = 3; // 枠線の太さ
+        for (let x = x1; x <= x2; x++) {
+          for (let y = y1; y <= y2; y++) {
+            // 外周部分のみ色を変更
+            if (x < x1 + thickness || x > x2 - thickness || y < y1 + thickness || y > y2 - thickness) {
+              image.setPixelColor(color, x, y);
+            }
+          }
+        }
+      } else if (process_type === 'black_fill' || process_type === 'white_fill') {
+        const color = process_type === 'black_fill' ? colorBlack : colorWhite;
+        for (let x = x1; x <= x2; x++) {
+          for (let y = y1; y <= y2; y++) {
+            image.setPixelColor(color, x, y);
+          }
+        }
+      } else if (process_type === 'mosaic') {
+        // Jimpの標準モザイク機能(pixelate)を対象領域に適用
+        image.pixelate(10, x1, y1, w, h);
+      }
+    });
+
+    // 4. 加工済み画像の書き出し
+    const outMime = (mimeType === MimeType.PNG) ? Jimp.MIME_PNG : Jimp.MIME_JPEG;
+    const outBase64Data = await image.getBase64Async(outMime);
+    
+    // "data:image/jpeg;base64,..." のカンマ以降を抽出してBlobに変換
+    const rawBase64 = outBase64Data.split(",")[1];
+    const newBlob = Utilities.newBlob(Utilities.base64Decode(rawBase64), mimeType, `加工済_${originalName}`);
+    
+    const newFile = destFolder.createFile(newBlob);
+    createdFileUrl = newFile.getUrl();
+
+    // 成功時のログ出力
+    logConfig = {
+      isError: false,
+      message: `画像「${originalName}」を加工して保存しました。`,
+      chip: {
+        label: "加工後の画像を開く",
+        url: createdFileUrl,
+        icon: StudioWrapper.ICON_IMAGE
+      }
+    };
+
+  } catch (error) {
+    console.error(error.stack || error.message);
+    logConfig = {
+      isError: true,
+      message: `画像の加工に失敗しました: ${error.message}`,
+      chip: { label: "エラーの詳細", icon: StudioWrapper.ICON_ERROR }
+    };
+  }
+
+  // 5. 結果の返却
+  return StudioWrapper.buildExecuteResponse({ 
+    "processed_image_url": createdFileUrl 
+  }, logConfig);
+}
 
 /**
  * =========================================================
