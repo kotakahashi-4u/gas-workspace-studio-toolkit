@@ -108,6 +108,47 @@
             }
           },
           {
+            "id": "renameItemAction",
+            "state": "ACTIVE",
+            "name": "ファイルまたはフォルダ名を変更",
+            "description": "指定したドライブアイテムの名前を変更します。ファイルの場合は元の拡張子が自動的に引き継がれます。",
+            "workflowAction": {
+              "inputs": [
+                {
+                  "id": "item_id",
+                  "description": "名前を変更するアイテム",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "new_name",
+                  "description": "新しい名前",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "result_status",
+                  "description": "処理結果のステータス",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "onConfigFunction": "onRenameItemConfig",
+              "onExecuteFunction": "onRenameItemExecute",
+              "onSaveFunction": "onRenameItemSave"
+            }
+          },
+          {
             "id": "splitPdfAction",
             "state": "ACTIVE",
             "name": "PDFファイルを指定ページ数で分割",
@@ -155,6 +196,65 @@
               "onConfigFunction": "onSplitPdfConfig",
               "onExecuteFunction": "onSplitPdfExecute",
               "onSaveFunction": "onSplitPdfSave"
+            }
+          },
+          {
+            "id": "processImageAction",
+            "state": "ACTIVE",
+            "name": "画像ファイルの特定箇所を加工",
+            "description": "画像と座標データ(JSON)を受け取り、枠線・塗りつぶし・モザイクなどの加工を行います",
+            "workflowAction": {
+              "inputs": [
+                {
+                  "id": "image_file_id",
+                  "description": "加工対象の画像ファイル (URLまたはID)",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "rectangles_json",
+                  "description": "加工領域の座標データ (JSON配列)",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "process_type",
+                  "description": "加工の種類",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "dest_folder_id",
+                  "description": "保存先のフォルダ",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "processed_image_url",
+                  "description": "加工済み画像のURL",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "onConfigFunction": "onProcessImageConfig",
+              "onExecuteFunction": "onProcessImageExecute",
+              "onSaveFunction": "onProcessImageSave"
             }
           },
           {
