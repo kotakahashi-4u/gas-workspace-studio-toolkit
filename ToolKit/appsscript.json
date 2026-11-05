@@ -8,6 +8,18 @@
         "userSymbol": "StudioWrapper",
         "libraryId": "1ka8vVJSaKyYjuGXyJMMxqESfKgV9R6fKCP6kroTIRBZ_0jrIaswR_Sch",
         "version": "3"
+      },
+      {
+        "userSymbol": "StudioWrapper_",
+        "libraryId": "1rCw3PaSIsyurIDOzdHrOuUroqFPVifhl61bYdCJGK3Rwr94OyIl4325x",
+        "version": "39"
+      }
+    ],
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "Calendar",
+        "version": "v3",
+        "serviceId": "calendar"
       }
     ]
   },
@@ -15,7 +27,8 @@
     "https://www.googleapis.com/auth/script.external_request",
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/documents",
-    "https://www.googleapis.com/auth/spreadsheets"
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/calendar"
   ],
   "addOns": {
     "common": {
@@ -382,6 +395,109 @@
               "onConfigFunction": "onDocsJsonImportConfig",
               "onExecuteFunction": "onDocsJsonImportExecute",
               "onSaveFunction": "onDocsJsonImportSave"
+            }
+          },
+          {
+            "id": "advancedMeetingAction",
+            "state": "ACTIVE",
+            "name": "会議の設定Ex",
+            "description": "変数を用いた日時設定、会議室の確保、終日予定など高度な会議設定を行います。",
+            "workflowAction": {
+              "inputs": [
+                {
+                  "id": "title",
+                  "description": "会議のタイトル",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "date",
+                  "description": "日付 (YYYY-MM-DD)",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "is_all_day",
+                  "description": "終日予定にするか",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "time",
+                  "description": "開始時刻 (HH:mm)",
+                  "required": false,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "duration",
+                  "description": "所要時間 (分)",
+                  "required": false,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "room_id",
+                  "description": "会議室 / カレンダーID",
+                  "required": false,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "guests",
+                  "description": "ゲストのメールアドレス",
+                  "required": false,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "add_meet",
+                  "description": "Google Meetを追加するか",
+                  "required": true,
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "event_url",
+                  "description": "作成された予定のカレンダーURL",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                },
+                {
+                  "id": "event_id",
+                  "description": "作成された予定のID",
+                  "dataType": {
+                    "basicType": "STRING"
+                  },
+                  "cardinality": "SINGLE"
+                }
+              ],
+              "onConfigFunction": "onAdvancedMeetingConfig",
+              "onExecuteFunction": "onAdvancedMeetingExecute",
+              "onSaveFunction": "onAdvancedMeetingSave"
             }
           }
         ]
