@@ -1410,6 +1410,326 @@ function onDocsJsonImportExecute(e) {
 
 /**
  * =========================================================
+ * CalendarEx: 拡張版・会議設定アクション
+ * =========================================================
+ */
+
+/**
+ * [ヘルパー関数] Workspace Studioからの入力値を安全な文字列に変換します。
+ */
+function getSafeString(val, defaultVal = "") {
+  if (val === null || val === undefined) return defaultVal;
+  if (Array.isArray(val)) return String(val[0]);
+  return String(val);
+}
+
+/**
+ * [ヘルパー関数] ドロップダウン等の値を安全に真偽判定します。
+ * "true", true, および選択肢テキスト「はい」「終日」が含まれる場合も確実にtrueと判定します。
+ */
+function isTruthy(val) {
+  if (val === true) return true;
+  if (!val) return false;
+  const str = String(Array.isArray(val) ? val[0] : val).trim().toLowerCase();
+  return str === "true" || str === "1" || str.indexOf("はい") !== -1 || str.indexOf("終日") !== -1;
+}
+
+/**
+ * [ヘルパー関数] 入力された日付文字列から YYYY-MM-DD を安全に抽出・正規化します。
+ * （Gemini等の変数から前後の改行やスラッシュ区切りが渡された場合のフェイルセーフ）
+ */
+function normalizeDateString(dateStr) {
+  if (!dateStr) return "";
+  const match = String(dateStr).match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/);
+  if (!match) return String(dateStr).trim();
+  
+  const parts = match[0].replace(/\//g, "-").split("-");
+  const year = parts[0];
+  const month = parts[1].padStart(2, "0");
+  const day = parts[2].padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * [ヘルパー関数] ユーザーがアクセス可能なカレンダー（会議室含む）の一覧を取得
+ */
+function getRoomOptions(e) {
+  const rawInputs = e ? StudioWrapper.parseInputs(e) : {};
+  const savedRoomId = getSafeString(rawInputs.room_id);
+  
+  let options = [{ text: "指定しない（メインカレンダーのみ）", value: "", selected: (savedRoomId === "") }];
+
+  try {
+    const calendars = CalendarApp.getAllCalendars();
+    const myEmail = Session.getActiveUser().getEmail();
+    let foundSavedId = false;
+
+    calendars.forEach(cal => {
+      if (cal.getId() !== myEmail) {
+        const isSelected = (cal.getId() === savedRoomId);
+        if (isSelected) foundSavedId = true;
+        options.push({ text: cal.getName(), value: cal.getId(), selected: isSelected });
+      }
+    });
+
+    if (!foundSavedId && savedRoomId !== "") {
+      options.push({ text: `保存済みの会議室 (${savedRoomId})`, value: savedRoomId, selected: true });
+    }
+  } catch (error) {
+    console.error("カレンダー情報の取得に失敗しました: " + error.message);
+  }
+
+  return options;
+}
+
+/**
+ * [UI構築ヘルパー] 拡張会議アクションの設定画面UIを構築
+ */
+function buildAdvancedMeetingConfigUI(e, errorMessage = "") {
+  const inputs = [];
+  
+  if (errorMessage) {
+    inputs.push({ type: StudioWrapper.TEXT_PARAGRAPH, text: errorMessage });
+  }
+
+  const roomOptions = getRoomOptions(e);
+  
+  // 値の安全な抽出
+  const rawInputs = e ? StudioWrapper.parseInputs(e) : {};
+  const isAllDay = isTruthy(rawInputs.is_all_day);
+  const addMeet = isTruthy(rawInputs.add_meet);
+
+  inputs.push(
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "title", 
+      title: "タイトル*",
+      hint: "会議のタイトルを入力（@で変数を利用可能）"
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "date", 
+      title: "日付 (YYYY-MM-DD)*",
+      hint: "例: 2026-10-16 （@で変数を挿入して動的に設定可能）"
+    },
+    { 
+      type: StudioWrapper.SELECTION,
+      id: "is_all_day", 
+      title: "終日予定にする*",
+      selectionType: StudioWrapper.DROPDOWN,
+      options: [
+        { text: "いいえ（時間を指定する）", value: "false", selected: !isAllDay },
+        { text: "はい（終日予定として作成）", value: "true", selected: isAllDay }
+      ],
+      includeVariables: false 
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "time", 
+      title: "開始時刻 (HH:mm)",
+      hint: "例: 10:30 （※終日予定が「はい」の場合は無視されます）"
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "duration", 
+      title: "所要時間 (分)",
+      hint: "例: 30 （※終日予定が「はい」の場合は無視されます）",
+      validation: {
+        inputType: StudioWrapper.INPUT_TYPE_INTEGER
+      }
+    },
+    { 
+      type: StudioWrapper.SELECTION,
+      id: "room_id", 
+      title: "会議室 / 追加カレンダーの確保",
+      selectionType: StudioWrapper.DROPDOWN,
+      options: roomOptions,
+      includeVariables: false 
+    },
+    { 
+      type: StudioWrapper.TEXT_INPUT,
+      id: "guests", 
+      title: "ゲスト (メールアドレス)",
+      hint: "複数人の場合はカンマ(,)で区切ってください。",
+      multiline: true
+    },
+    { 
+      type: StudioWrapper.SELECTION,
+      id: "add_meet", 
+      title: "ビデオ会議 (Google Meet) を追加*",
+      selectionType: StudioWrapper.DROPDOWN,
+      options: [
+        { text: "追加しない", value: "false", selected: !addMeet },
+        { text: "追加する", value: "true", selected: addMeet }
+      ],
+      includeVariables: false 
+    }
+  );
+
+  return StudioWrapper.buildConfigCard("", inputs);
+}
+
+/**
+ * 初回設定画面（Config）の表示
+ */
+function onAdvancedMeetingConfig(e) {
+  return buildAdvancedMeetingConfigUI(e);
+}
+
+/**
+ * 保存時のサーバー側バリデーション（Save）
+ */
+function onAdvancedMeetingSave(e) {
+  const rawInputs = StudioWrapper.parseInputs(e);
+  const title = getSafeString(rawInputs.title);
+  const date = getSafeString(rawInputs.date);
+  const isAllDay = isTruthy(rawInputs.is_all_day);
+  const time = getSafeString(rawInputs.time);
+  const duration = getSafeString(rawInputs.duration);
+
+  // 必須項目の空欄チェック
+  if (!title || !date) {
+    return StudioWrapper.buildSaveError(
+      buildAdvancedMeetingConfigUI(e, "<font color=\"#FF0000\"><b>エラー:</b> タイトルと日付は必須です。</font>")
+    );
+  }
+
+  // 終日でない場合の時間の必須チェック
+  if (!isAllDay) {
+    if (!time || !duration) {
+      return StudioWrapper.buildSaveError(
+        buildAdvancedMeetingConfigUI(e, "<font color=\"#FF0000\"><b>エラー:</b> 終日予定でない場合、開始時刻と所要時間は必須です。</font>")
+      );
+    }
+  }
+
+  return StudioWrapper.buildSaveSuccess();
+}
+
+/**
+ * 実際の会議作成処理（Execute）
+ */
+function onAdvancedMeetingExecute(e) {
+  let resultUrl = "";
+  let resultId = "";
+  let logConfig = null;
+
+  try {
+    const rawInputs = StudioWrapper.parseInputs(e);
+    
+    // 全ての入力値を安全に正規化
+    const title = getSafeString(rawInputs.title);
+    const date = normalizeDateString(getSafeString(rawInputs.date));
+    const isAllDay = isTruthy(rawInputs.is_all_day);
+    const time = getSafeString(rawInputs.time);
+    const duration = getSafeString(rawInputs.duration);
+    const roomId = getSafeString(rawInputs.room_id);
+    const guests = getSafeString(rawInputs.guests);
+    const addMeet = isTruthy(rawInputs.add_meet);
+
+    const timeZone = Session.getScriptTimeZone();
+    
+    // Calendar API v3 用のイベントオブジェクトを作成
+    const event = {
+      summary: title,
+      attendees: []
+    };
+
+    if (guests) {
+      const guestList = guests.split(",").map(s => s.trim()).filter(s => s !== "");
+      guestList.forEach(email => {
+        event.attendees.push({ email: email });
+      });
+    }
+    
+    if (roomId) {
+      event.attendees.push({ email: roomId });
+    }
+
+    // 日時の構築
+    if (isAllDay) {
+      const startDateObj = new Date(`${date}T00:00:00`);
+      if (isNaN(startDateObj.getTime())) throw new Error(`日付の形式が正しくありません: ${date}`);
+      
+      const endDateObj = new Date(startDateObj.getTime() + 24 * 60 * 60 * 1000); 
+      
+      event.start = { date: Utilities.formatDate(startDateObj, timeZone, "yyyy-MM-dd") };
+      event.end = { date: Utilities.formatDate(endDateObj, timeZone, "yyyy-MM-dd") };
+    } else {
+      // 終日でない場合のみ、時刻と所要時間の存在を確認
+      if (!time || time.trim() === "") {
+        throw new Error("開始時刻が設定されていません。変数から値が渡っていないか、未入力の可能性があります。");
+      }
+      if (!duration || duration.trim() === "") {
+        throw new Error("所要時間が設定されていません。");
+      }
+
+      const startStr = `${date}T${time}:00`;
+      const startTime = new Date(startStr);
+      if (isNaN(startTime.getTime())) throw new Error(`日時または時刻の形式が正しくありません: ${date} ${time}`);
+      
+      const durMinutes = parseInt(duration, 10);
+      if (isNaN(durMinutes)) throw new Error(`所要時間が数値として認識できませんでした: ${duration}`);
+      
+      const endTime = new Date(startTime.getTime() + durMinutes * 60000);
+
+      event.start = {
+        dateTime: Utilities.formatDate(startTime, timeZone, "yyyy-MM-dd'T'HH:mm:ssXXX"),
+        timeZone: timeZone
+      };
+      event.end = {
+        dateTime: Utilities.formatDate(endTime, timeZone, "yyyy-MM-dd'T'HH:mm:ssXXX"),
+        timeZone: timeZone
+      };
+    }
+
+    // Google Meetリンクの自動生成リクエスト
+    if (addMeet) {
+      event.conferenceData = {
+        createRequest: {
+          requestId: Utilities.getUuid(),
+          conferenceSolutionKey: { type: "hangoutsMeet" }
+        }
+      };
+    }
+
+    // カレンダーへ予定を挿入
+    const createdEvent = Calendar.Events.insert(event, 'primary', { conferenceDataVersion: 1 });
+    
+    resultUrl = createdEvent.htmlLink;
+    resultId = createdEvent.id;
+
+    logConfig = {
+      isError: false,
+      message: `予定「${title}」を作成しました。`,
+      chip: {
+        label: "カレンダーで開く",
+        url: resultUrl,
+        icon: StudioWrapper.ICON_LINK
+      }
+    };
+
+  } catch (error) {
+    console.error(error.stack || error.message);
+    
+    logConfig = {
+      isError: true,
+      message: `予定の作成に失敗しました: ${error.message}`,
+      chip: {
+        label: "エラーの詳細",
+        icon: StudioWrapper.ICON_ERROR
+      }
+    };
+  }
+
+  return StudioWrapper.buildExecuteResponse({
+    "event_url": resultUrl,
+    "event_id": resultId
+  }, logConfig);
+}
+
+/**
+ * =========================================================
  * 共通ヘルパー関数
  * =========================================================
  */
