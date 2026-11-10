@@ -79,10 +79,9 @@ Google Calendarの予定作成や会議設定を高度に自動化するアク�
 ## 🚀 導入手順 (Setup Guide)
 ### Step 1: Google Apps Script (GAS) への適用
 1. [Google Apps Script](https://script.google.com/) にアクセスし、新しいプロジェクトを作成します。
-2. 本リポジトリの対象フォルダ内にある [code.gs](https://github.com/kotakahashi-4u/gas-workspace-studio-toolkit/tree/main/ToolKit/code.gs) の中身をコピーし、エディタに貼り付けます。
+2. 本リポジトリのToolkit内にある [code.gs](https://github.com/kotakahashi-4u/gas-workspace-studio-toolkit/tree/main/ToolKit/code.gs) の中身をコピーし、エディタに貼り付けます。
 3. プロジェクト設定の歯車アイコンから「`appsscript.json` マニフェスト ファイルをエディタで表示する」にチェックを入れます。
-4. エディタに表示された `appsscript.json` に、本リポジトリの [同名ファイルの中身](https://github.com/kotakahashi-4u/gas-workspace-studio-toolkit/tree/main/ToolKit/appsscript.json) を上書き保存します。
-5. （手動の場合）エディタ左側の「ライブラリ」の「＋」を押し、`StudioWrapper` のIDを追加します。
+4. エディタに表示された `appsscript.json` に、本リポジトリのToolkit内にある [appsscript.json](https://github.com/kotakahashi-4u/gas-workspace-studio-toolkit/tree/main/ToolKit/appsscript.json) の中身をコピーし貼り付けます。貼り付け後にプロジェクトの保存を必ず行ってください。これにより、各種ライブラリやサービスが適用されます。
 6. 右上の「デプロイ」>「デプロイをテスト」を選択し、アプリケーションの種類から「Google Workspace アドオン」として「インストール」をクリックします。
 
 ### Step 2: Google Workspace Studio への適用
