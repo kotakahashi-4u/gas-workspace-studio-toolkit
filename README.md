@@ -61,6 +61,19 @@ Google Docsの自動生成やテンプレート処理を行うアクションで
 | :--- | :--- | :--- | :--- |
 | **画像ファイルの特定箇所を加工** | 画像と座標データ(JSON)を受け取り、指定領域に枠線・塗りつぶし・モザイクなどの加工を行い、新しいファイルとして保存します。(Jimp使用) | `image_file_id`: 対象画像のURLまたはID<br>`rectangles_json`: 加工領域の座標データ(JSON)<br>`process_type`: 加工の種類<br>`dest_folder_id`: 保存先フォルダのURL | `processed_image_url`: 加工済み画像のURL |
 
+### 5. CalendarEx (Google Calendar 拡張アクション)
+Google Calendarの予定作成や会議設定を高度に自動化するアクションです。
+
+| アクション名 | 役割 | 入力 (Inputs) | 出力 (Outputs) |
+| :--- | :--- | :--- | :--- |
+| **会議の設定Ex** | 終日予定と時間指定の切り替え、会議室（追加カレンダー）の確保、ゲスト招待、Google Meetリンクの自動発行に対応した予定を作成します。 | `title`: 会議のタイトル<br>`date`: 日付 (`YYYY-MM-DD`)<br>`is_all_day`: 終日予定にするか<br>`time`: 開始時刻 (`HH:mm`)<br>`duration`: 所要時間 (分)<br>`room_id`: 会議室 / 追加カレンダー<br>`guests`: ゲスト (カンマ区切り)<br>`add_meet`: Google Meetの追加有無 | `event_url`: 作成された予定のURL<br>`event_id`: 作成された予定のID |
+
+💡 **CalendarExの特長（技術的ハイライト）**
+- **会議室・追加カレンダーの動的取得:** 設定画面を開いた際、ユーザーがアクセス可能なサブカレンダーや会議室リソースを自動取得し、ドロップダウンリストとして動的に展開します。
+- **Google Meet の自動発行 (Calendar API v3):** 標準の `CalendarApp` では難しい Google Meet の会議リンク生成（`conferenceData`）を、Advanced Calendar Service (`Calendar.Events.insert`) を用いることでワンクリックで自動付与します。
+- **AI出力に強いスマートな日付正規化:** Gemini などの前段ステップから渡される日付データに改行やスラッシュ区切り（`2026/10/16` など）が含まれていても、内部で自動的に `YYYY-MM-DD` 形式へ正規化してエラーを防ぎます。
+
+
 ---
 
 ## 🚀 導入手順 (Setup Guide)
