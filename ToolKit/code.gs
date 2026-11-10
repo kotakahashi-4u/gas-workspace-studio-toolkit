@@ -5,11 +5,11 @@
  */
 
 /**
- * [UI構築ヘルパー] 移動アクションの設定画面UIを構築します。
+ * [UI構築ヘルパー] 移動アクションの設定画面UI（入力フォーム配列）を構築します。
  * 初回表示とエラー時の再描画で共通利用します。
  * 
  * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ可）
- * @returns {Object} 構築されたカード配列
+ * @returns {Array<Object>} 構築された入力フォーム設定の配列
  */
 function buildMoveFileConfigUI(errorMessage = "") {
   const inputs = [];
@@ -35,7 +35,7 @@ function buildMoveFileConfigUI(errorMessage = "") {
     }
   );
 
-  return StudioWrapper.buildConfigCard("", inputs);
+  return inputs;
 }
 
 /**
@@ -46,7 +46,8 @@ function buildMoveFileConfigUI(errorMessage = "") {
  */
 function onMoveFileConfig() {
   // 初回表示時はエラーメッセージなしでUIを構築
-  return buildMoveFileConfigUI();
+  const inputs = buildMoveFileConfigUI();
+  return StudioWrapper.buildConfigCard("", inputs);
 }
 
 /**
@@ -64,8 +65,8 @@ function onMoveFileSave(e) {
   // 2. DRIVE_PICKERの空欄チェック
   if (!folder_id) {
     // エラーメッセージを差し込んでUIを再構築し、CRITICALエラーとしてブロック
-    const errorCard = buildMoveFileConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 移動先フォルダを選択してください。</font>");
-    return StudioWrapper.buildSaveError(errorCard);
+    const inputs = buildMoveFileConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 移動先フォルダを選択してください。</font>");
+    return StudioWrapper.buildSaveError("", inputs);
   }
 
   // 3. 正常に入力されていれば保存を許可
@@ -145,11 +146,11 @@ function onMoveFileExecute(e) {
  */
 
 /**
- * [UI構築ヘルパー] 指定直下判定アクションの設定画面UIを構築します。
+ * [UI構築ヘルパー] 指定直下判定アクションの設定画面UI（入力フォーム配列）を構築します。
  * 初回表示時およびバリデーションエラー時の再描画において共通利用されます。
  * 
  * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ使用可）
- * @returns {Object} StudioWrapperで構築されたカードレスポンス
+ * @returns {Array<Object>} 構築された入力フォーム設定の配列
  */
 function buildCheckRootConfigUI(errorMessage = "") {
   const inputs = [];
@@ -173,7 +174,7 @@ function buildCheckRootConfigUI(errorMessage = "") {
     }
   );
 
-  return StudioWrapper.buildConfigCard("", inputs);
+  return inputs;
 }
 
 /**
@@ -183,7 +184,8 @@ function buildCheckRootConfigUI(errorMessage = "") {
  * @returns {Object} 構築された設定画面のカードレスポンス
  */
 function onCheckRootConfig() {
-  return buildCheckRootConfigUI();
+  const inputs = buildCheckRootConfigUI();
+  return StudioWrapper.buildConfigCard("", inputs);
 }
 
 /**
@@ -198,8 +200,8 @@ function onCheckRootSave(e) {
   const { root_folder_id } = StudioWrapper.parseInputs(e);
 
   if (!root_folder_id) {
-    const errorCard = buildCheckRootConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 指定フォルダの場所を選択してください。</font>");
-    return StudioWrapper.buildSaveError(errorCard);
+    const inputs = buildCheckRootConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 指定フォルダの場所を選択してください。</font>");
+    return StudioWrapper.buildSaveError("", inputs);
   }
 
   return StudioWrapper.buildSaveSuccess();
@@ -286,11 +288,11 @@ function onCheckRootExecute(e) {
  */
 
 /**
- * [UI構築ヘルパー] リネームアクションの設定画面UIを構築します。
+ * [UI構築ヘルパー] リネームアクションの設定画面UI（入力フォーム配列）を構築します。
  * 初回表示とエラー時の再描画で共通利用します。
  * 
  * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ可）
- * @returns {Object} 構築されたカードレスポンス
+ * @returns {Array<Object>} 構築された入力フォーム設定の配列
  */
 function buildRenameItemConfigUI(errorMessage = "") {
   const inputs = [];
@@ -315,7 +317,7 @@ function buildRenameItemConfigUI(errorMessage = "") {
     }
   );
 
-  return StudioWrapper.buildConfigCard("", inputs);
+  return inputs;
 }
 
 /**
@@ -324,7 +326,8 @@ function buildRenameItemConfigUI(errorMessage = "") {
  * @returns {Object} 構築された設定画面のレスポンス
  */
 function onRenameItemConfig() {
-  return buildRenameItemConfigUI();
+  const inputs = buildRenameItemConfigUI();
+  return StudioWrapper.buildConfigCard("", inputs);
 }
 
 /**
@@ -338,8 +341,8 @@ function onRenameItemSave(e) {
   const { item_id, new_name } = StudioWrapper.parseInputs(e);
 
   if (!item_id || !new_name) {
-    const errorCard = buildRenameItemConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 対象アイテムと新しい名前の両方を入力してください。</font>");
-    return StudioWrapper.buildSaveError(errorCard);
+    const inputs = buildRenameItemConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 対象アイテムと新しい名前の両方を入力してください。</font>");
+    return StudioWrapper.buildSaveError("", inputs);
   }
 
   return StudioWrapper.buildSaveSuccess();
@@ -437,11 +440,11 @@ function onRenameItemExecute(e) {
  */
 
 /**
- * [UI構築ヘルパー] PDF分割アクションの設定画面UIを構築します。
+ * [UI構築ヘルパー] PDF分割アクションの設定画面UI（入力フォーム配列）を構築します。
  * 初回表示時およびバリデーションエラー時の再描画において共通利用されます。
  * 
  * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ使用可）
- * @returns {Object} StudioWrapperで構築されたカードレスポンス
+ * @returns {Array<Object>} 構築された入力フォーム設定の配列
  */
 function buildSplitPdfConfigUI(errorMessage = "") {
   const inputs = [];
@@ -476,7 +479,7 @@ function buildSplitPdfConfigUI(errorMessage = "") {
     }
   );
 
-  return StudioWrapper.buildConfigCard("", inputs);
+  return inputs;
 }
 
 /**
@@ -486,7 +489,8 @@ function buildSplitPdfConfigUI(errorMessage = "") {
  * @returns {Object} 構築された設定画面のカードレスポンス
  */
 function onSplitPdfConfig() {
-  return buildSplitPdfConfigUI();
+  const inputs = buildSplitPdfConfigUI();
+  return StudioWrapper.buildConfigCard("", inputs);
 }
 
 /**
@@ -501,8 +505,8 @@ function onSplitPdfSave(e) {
   const { split_file_id, dest_folder_id } = StudioWrapper.parseInputs(e);
 
   if (!split_file_id || !dest_folder_id) {
-    const errorCard = buildSplitPdfConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 分割対象のPDFファイルと、保存先フォルダの両方を選択してください。</font>");
-    return StudioWrapper.buildSaveError(errorCard);
+    const inputs = buildSplitPdfConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 分割対象のPDFファイルと、保存先フォルダの両方を選択してください。</font>");
+    return StudioWrapper.buildSaveError("", inputs);
   }
 
   return StudioWrapper.buildSaveSuccess();
@@ -618,11 +622,11 @@ async function onSplitPdfExecute(e) {
  */
 
 /**
- * [UI構築ヘルパー] 画像加工アクションの設定画面UIを構築します。
+ * [UI構築ヘルパー] 画像加工アクションの設定画面UI（入力フォーム配列）を構築します。
  * 初回表示時およびバリデーションエラー時の再描画において共通利用されます。
  * 
  * @param {string} [errorMessage=""] - エラー時に表示するメッセージ
- * @returns {Object} StudioWrapperで構築されたカードレスポンス
+ * @returns {Array<Object>} 構築された入力フォーム設定の配列
  */
 function buildProcessImageConfigUI(errorMessage = "") {
   const inputs = [];
@@ -667,7 +671,7 @@ function buildProcessImageConfigUI(errorMessage = "") {
     }
   );
 
-  return StudioWrapper.buildConfigCard("", inputs);
+  return inputs;
 }
 
 /**
@@ -676,7 +680,8 @@ function buildProcessImageConfigUI(errorMessage = "") {
  * @returns {Object} 構築された設定画面のカードレスポンス
  */
 function onProcessImageConfig() {
-  return buildProcessImageConfigUI();
+  const inputs = buildProcessImageConfigUI();
+  return StudioWrapper.buildConfigCard("", inputs);
 }
 
 /**
@@ -689,8 +694,8 @@ function onProcessImageSave(e) {
   const { dest_folder_id } = StudioWrapper.parseInputs(e);
 
   if (!dest_folder_id) {
-    const errorCard = buildProcessImageConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 保存先フォルダを選択してください。</font>");
-    return StudioWrapper.buildSaveError(errorCard);
+    const inputs = buildProcessImageConfigUI("<font color=\"#FF0000\"><b>エラー:</b> 保存先フォルダを選択してください。</font>");
+    return StudioWrapper.buildSaveError("", inputs);
   }
 
   return StudioWrapper.buildSaveSuccess();
@@ -1157,11 +1162,11 @@ function onAppendAdvancedRowsExecute(e) {
  */
 
 /**
- * [UI構築ヘルパー] 差し込み印刷アクションの設定画面UIを構築します。
+ * [UI構築ヘルパー] 差し込み印刷アクションの設定画面UI（入力フォーム配列）を構築します。
  * 初回表示時およびバリデーションエラー時の再描画において共通利用されます。
  * 
  * @param {string} [errorMessage=""] - エラー時に表示するメッセージ（HTMLタグ使用可）
- * @returns {Object} StudioWrapperで構築されたカードレスポンス
+ * @returns {Array<Object>} 構築された入力フォーム設定の配列
  */
 function buildDocsJsonImportConfigUI(errorMessage = "") {
   const inputs = [];
@@ -1209,7 +1214,7 @@ function buildDocsJsonImportConfigUI(errorMessage = "") {
     }
   );
 
-  return StudioWrapper.buildConfigCard("", inputs);
+  return inputs;
 }
 
 /**
@@ -1219,7 +1224,8 @@ function buildDocsJsonImportConfigUI(errorMessage = "") {
  * @returns {Object} 構築された設定画面のカードレスポンス
  */
 function onDocsJsonImportConfig() {
-  return buildDocsJsonImportConfigUI();
+  const inputs = buildDocsJsonImportConfigUI();
+  return StudioWrapper.buildConfigCard("", inputs);
 }
 
 /**
@@ -1234,8 +1240,8 @@ function onDocsJsonImportSave(e) {
   const { template_id, dest_folder_id } = StudioWrapper.parseInputs(e);
 
   if (!template_id || !dest_folder_id) {
-    const errorCard = buildDocsJsonImportConfigUI("<font color=\"#FF0000\"><b>エラー:</b> テンプレートと保存先フォルダの両方を選択してください。</font>");
-    return StudioWrapper.buildSaveError(errorCard);
+    const inputs = buildDocsJsonImportConfigUI("<font color=\"#FF0000\"><b>エラー:</b> テンプレートと保存先フォルダの両方を選択してください。</font>");
+    return StudioWrapper.buildSaveError("", inputs);
   }
 
   return StudioWrapper.buildSaveSuccess();
@@ -1461,11 +1467,12 @@ function getRoomOptions(e) {
 
   try {
     const calendars = CalendarApp.getAllCalendars();
-    const myEmail = Session.getActiveUser().getEmail();
+    // Session.getActiveUser() を使わず、デフォルトカレンダーから自身のIDを取得（権限エラー回避）
+    const primaryCalId = CalendarApp.getDefaultCalendar().getId();
     let foundSavedId = false;
 
     calendars.forEach(cal => {
-      if (cal.getId() !== myEmail) {
+      if (cal.getId() !== primaryCalId) {
         const isSelected = (cal.getId() === savedRoomId);
         if (isSelected) foundSavedId = true;
         options.push({ text: cal.getName(), value: cal.getId(), selected: isSelected });
@@ -1483,9 +1490,9 @@ function getRoomOptions(e) {
 }
 
 /**
- * [UI構築ヘルパー] 拡張会議アクションの設定画面UIを構築
+ * [UI構築ヘルパー] 拡張会議アクションの設定画面UI（入力フォーム配列）を構築
  */
-function buildAdvancedMeetingConfigUI(e, errorMessage = "") {
+function buildAdvancedMeetingInputs(e, errorMessage = "") {
   const inputs = [];
   
   if (errorMessage) {
@@ -1566,14 +1573,16 @@ function buildAdvancedMeetingConfigUI(e, errorMessage = "") {
     }
   );
 
-  return StudioWrapper.buildConfigCard("", inputs);
+  // buildConfigCard は呼ばず、配列そのものを返す
+  return inputs;
 }
 
 /**
  * 初回設定画面（Config）の表示
  */
 function onAdvancedMeetingConfig(e) {
-  return buildAdvancedMeetingConfigUI(e);
+  const inputs = buildAdvancedMeetingInputs(e);
+  return StudioWrapper.buildConfigCard("", inputs);
 }
 
 /**
@@ -1589,17 +1598,15 @@ function onAdvancedMeetingSave(e) {
 
   // 必須項目の空欄チェック
   if (!title || !date) {
-    return StudioWrapper.buildSaveError(
-      buildAdvancedMeetingConfigUI(e, "<font color=\"#FF0000\"><b>エラー:</b> タイトルと日付は必須です。</font>")
-    );
+    const inputs = buildAdvancedMeetingInputs(e, "<font color=\"#FF0000\"><b>エラー:</b> タイトルと日付は必須です。</font>");
+    return StudioWrapper.buildSaveError("", inputs);
   }
 
   // 終日でない場合の時間の必須チェック
   if (!isAllDay) {
     if (!time || !duration) {
-      return StudioWrapper.buildSaveError(
-        buildAdvancedMeetingConfigUI(e, "<font color=\"#FF0000\"><b>エラー:</b> 終日予定でない場合、開始時刻と所要時間は必須です。</font>")
-      );
+      const inputs = buildAdvancedMeetingInputs(e, "<font color=\"#FF0000\"><b>エラー:</b> 終日予定でない場合、開始時刻と所要時間は必須です。</font>");
+      return StudioWrapper.buildSaveError("", inputs);
     }
   }
 
